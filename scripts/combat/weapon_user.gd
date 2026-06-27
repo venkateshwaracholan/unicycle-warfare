@@ -5,6 +5,7 @@ class_name WeaponUser
 var owner: Node2D
 var faction: Faction.Id = Faction.Id.NEUTRAL
 var fire_cooldown := 0.0
+var fire_rate_multiplier := 1.0
 var weapon_type: WeaponDefs.Type = WeaponDefs.Type.PISTOL
 
 func _init(p_owner: Node2D, p_faction: Faction.Id, p_weapon: WeaponDefs.Type = WeaponDefs.Type.PISTOL) -> void:
@@ -35,7 +36,7 @@ func try_attack(aim_dir: Vector2) -> Dictionary:
 		return { "fired": false }
 	var result := CombatActions.perform_attack(self, aim_dir)
 	if result.get("fired", false):
-		fire_cooldown = float(result.get("fire_rate", 0.5))
+		fire_cooldown = float(result.get("fire_rate", 0.5)) * fire_rate_multiplier
 	return result
 
 func try_pickup_nearby(radius: float = CombatActions.PICKUP_RADIUS) -> bool:

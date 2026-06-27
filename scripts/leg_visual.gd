@@ -13,7 +13,6 @@ const SHOE_LENGTH := 14.0
 const SHOE_HEIGHT := 6.0
 const SHOE_HIT_LENGTH := 15.0
 const SHOE_HIT_WIDTH := 8.0
-const BEND_FORWARD := Vector2(1.0, 0.0)
 const Shapes := preload("res://scripts/draw_shapes.gd")
 
 @onready var _thigh_hit: CollisionShape2D = $LegHitbox/Thigh
@@ -44,10 +43,12 @@ func _hip_anchor() -> Vector2:
 	return HIP
 
 func _wheel() -> Node2D:
-	var node := get_parent()
-	if node is RigidBody2D:
-		return node
-	return node.get_parent()
+	var node: Node = get_parent()
+	while node != null:
+		if node is Node2D and node.has_node("Pedals"):
+			return node as Node2D
+		node = node.get_parent()
+	return get_parent() as Node2D
 
 func _pedal_local() -> Vector2:
 	var wheel := _wheel()
@@ -89,14 +90,26 @@ func _solve_leg(hip: Vector2, pedal: Vector2) -> Dictionary:
 	return {"hip": hip, "knee": knee, "foot": foot, "pedal": pedal}
 
 func _pick_knee(hip: Vector2, cand_a: Vector2, cand_b: Vector2) -> Vector2:
-	# Both legs bend to the right in rider-local space (Unicycle Hero style).
-	var score_a := (cand_a - hip).dot(BEND_FORWARD)
-	var score_b := (cand_b - hip).dot(BEND_FORWARD)
+	var bend := Vector2(_facing_sign(), 0.0)
+	var score_a := (cand_a - hip).dot(bend)
+	var score_b := (cand_b - hip).dot(bend)
 	if score_a >= 0.0 and score_b < 0.0:
 		return cand_a
 	if score_b >= 0.0 and score_a < 0.0:
 		return cand_b
 	return cand_a if score_a >= score_b else cand_b
+
+
+func _facing_sign() -> float:
+	var sign := 1.0
+	var node: Node = self
+	while node != null:
+		if node is Node2D:
+			var n2d := node as Node2D
+			if n2d.scale.x != 0.0:
+				sign *= signf(n2d.scale.x)
+		node = node.get_parent()
+	return signf(sign) if sign != 0.0 else 1.0
 
 func _draw_leg_pose(leg: Dictionary) -> void:
 	var hip: Vector2 = leg["hip"]

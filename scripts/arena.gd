@@ -7,13 +7,53 @@ var ground_y := 490.0
 var spawn_points: Array[Vector2] = []
 var weapon_spawns: Array[Vector2] = []
 
+var _backdrop: BiomeVisual
+var _foreground: BiomeVisual
+var _environment: MapEnvironment
+
+
 func ground_surface_y() -> float:
 	return ground_y - 20.0
 
+
+func get_environment() -> MapEnvironment:
+	return _environment
+
+
 func _ready() -> void:
 	add_to_group("arena")
+	_ensure_biome_nodes()
 	_configure_map()
 	queue_redraw()
+
+
+func _ensure_biome_nodes() -> void:
+	if _backdrop != null:
+		return
+	_backdrop = BiomeVisual.new()
+	_backdrop.name = "BiomeBackdrop"
+	_backdrop.layer_kind = BiomeVisual.LayerKind.BACKDROP
+	_backdrop.z_index = -10
+	add_child(_backdrop)
+
+	_foreground = BiomeVisual.new()
+	_foreground.name = "BiomeForeground"
+	_foreground.layer_kind = BiomeVisual.LayerKind.FOREGROUND
+	_foreground.z_index = 5
+	add_child(_foreground)
+
+	_environment = MapEnvironment.new()
+	_environment.name = "MapEnvironment"
+	add_child(_environment)
+
+
+func _process(_delta: float) -> void:
+	if _environment == null or _backdrop == null:
+		return
+	var scroll := _environment.scroll_offset
+	_backdrop.set_scroll(scroll)
+	_foreground.set_scroll(scroll)
+
 
 func _configure_map() -> void:
 	spawn_points.clear()
@@ -30,6 +70,23 @@ func _configure_map() -> void:
 		float(spread.get("width", 520.0))
 	)
 
+	_refresh_biome(map)
+
+
+func _refresh_biome(map: Dictionary) -> void:
+	_ensure_biome_nodes()
+	var surface := ground_surface_y()
+	var palette := {
+		"sky": map.get("sky", Color(0.6, 0.7, 0.8)),
+		"ground": map.get("ground", Color(0.4, 0.35, 0.3)),
+		"platform": map.get("platform", Color(0.5, 0.45, 0.4)),
+	}
+	_backdrop.configure(map_id, surface, palette)
+	_foreground.configure(map_id, surface, palette)
+	_environment.configure(map_id)
+	queue_redraw()
+
+
 func _scatter_weapons(cx: float, floor_y: float, width: float) -> Array[Vector2]:
 	var pts: Array[Vector2] = []
 	var count := 9
@@ -39,8 +96,14 @@ func _scatter_weapons(cx: float, floor_y: float, width: float) -> Array[Vector2]
 		pts.append(Vector2(x, floor_y))
 	return pts
 
+
 func get_map_name() -> String:
 	return MapDefs.map_name(map_id)
+
+
+func get_biome_tagline() -> String:
+	return BiomeCatalog.get_visual(map_id).get("tagline", "")
+
 
 func cycle_map() -> void:
 	var ids: Array[MapDefs.MapId] = MapDefs.list_map_ids()
@@ -48,69 +111,21 @@ func cycle_map() -> void:
 	index = (index + 1) % ids.size()
 	map_id = ids[index]
 	_configure_map()
-	queue_redraw()
+
 
 func _draw() -> void:
 	var map: Dictionary = MapDefs.get_map(map_id)
 	var surface := ground_surface_y()
+
 	draw_rect(Rect2(-200, -600, 1600, surface + 600), map.get("sky", Color(0.62, 0.78, 0.62)))
 	draw_rect(Rect2(-200, surface, 1600, 600), map.get("ground", Color(0.42, 0.3, 0.18)))
 	draw_rect(Rect2(80, surface - 14, 1120, 14), map.get("platform", Color(0.58, 0.42, 0.28)))
-
-	match map.get("biome", ""):
-		"train":
-			_draw_train_deco(surface)
-		"city", "airship":
-			_draw_rooftop_deco(surface)
-		"dam", "harbor":
-			_draw_bridge_deco(surface)
-		"factory":
-			_draw_factory_deco(surface)
-		"castle":
-			_draw_castle_deco(surface)
-		"mine":
-			_draw_mine_deco(surface)
-		"volcano":
-			_draw_volcano_deco(surface)
-
 	_draw_side_walls(surface)
 
+
 func _draw_side_walls(surface: float) -> void:
-	draw_rect(Rect2(68, surface - 120, 14, 120), Color(0.45, 0.45, 0.48))
-	draw_rect(Rect2(1198, surface - 120, 14, 120), Color(0.45, 0.45, 0.48))
-
-func _draw_bridge_deco(surface: float) -> void:
-	for i in range(2, 7):
-		var cx := i * 180.0
-		draw_arc(Vector2(cx, surface + 54), 48, PI, TAU, 16, Color(0.32, 0.24, 0.18), 8.0)
-
-func _draw_train_deco(surface: float) -> void:
-	for i in 3:
-		var cx := 320.0 + i * 280.0
-		draw_rect(Rect2(cx - 90, surface - 70, 180, 56), Color(0.55, 0.18, 0.18))
-
-func _draw_rooftop_deco(surface: float) -> void:
-	for i in 6:
-		var h := 80 + (i * 37) % 120
-		draw_rect(Rect2(-180 + i * 140, surface + 40, 100, h), Color(0.1, 0.12, 0.18))
-
-func _draw_factory_deco(surface: float) -> void:
-	for i in 4:
-		var cx := 220.0 + i * 210.0
-		draw_rect(Rect2(cx - 24, surface - 90, 48, 76), Color(0.28, 0.3, 0.32))
-		draw_rect(Rect2(cx - 40, surface - 110, 80, 18), Color(0.35, 0.38, 0.4))
-
-func _draw_castle_deco(surface: float) -> void:
-	for i in 3:
-		var cx := 280.0 + i * 320.0
-		draw_rect(Rect2(cx - 36, surface - 100, 72, 86), Color(0.38, 0.34, 0.3))
-		draw_rect(Rect2(cx - 48, surface - 118, 96, 16), Color(0.45, 0.4, 0.36))
-
-func _draw_mine_deco(surface: float) -> void:
-	for i in 5:
-		var cx := 180.0 + i * 180.0
-		draw_rect(Rect2(cx - 8, surface + 20, 16, 60 + (i * 11) % 40), Color(0.25, 0.22, 0.18))
-
-func _draw_volcano_deco(surface: float) -> void:
-	draw_circle(Vector2(1080, surface + 80), 70, Color(0.55, 0.18, 0.08))
-	draw_circle(Vector2(1080, surface + 60), 36, Color(0.95, 0.45, 0.12))
+	var map: Dictionary = MapDefs.get_map(map_id)
+	var platform_color: Color = map.get("platform", Color(0.45, 0.45, 0.48))
+	var wall := platform_color.darkened(0.05)
+	draw_rect(Rect2(68, surface - 120, 14, 120), wall)
+	draw_rect(Rect2(1198, surface - 120, 14, 120), wall)

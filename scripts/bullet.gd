@@ -15,6 +15,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if _stuck:
 		return
+	var env := MapEnvironment.find_in_tree(get_tree())
+	if env:
+		velocity += env.get_wind_for_bullet(global_position.x) * delta
 	position += velocity * delta
 	if is_rocket:
 		velocity.y += 120.0 * delta

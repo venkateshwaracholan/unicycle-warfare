@@ -8,12 +8,9 @@ enum State { RIDING, RESPAWNING }
 
 const WEAPON_PICKUP_SCENE := preload("res://scenes/weapon_pickup.tscn")
 const Shapes := preload("res://scripts/draw_shapes.gd")
+const UnicycleRig := preload("res://scripts/unicycle/unicycle_rig.gd")
 
 const MAX_HEALTH := 100
-const WHEEL_RADIUS := 22.0
-const WHEEL_CIRCUMFERENCE := TAU * WHEEL_RADIUS
-const WHEEL_HUB := Vector2(0, -22)
-const RIDER_OFFSET_FROM_HUB := Vector2(0, -38)
 const PEDAL_ACCEL := 16.0
 const PEDAL_TURN_ACCEL := 55.0
 const TURN_BRAKE := 300.0
@@ -34,24 +31,18 @@ const REGEN_RATE := 8.0
 const MAX_SPEED := 26.0
 const ARENA_MIN_X := 100.0
 const ARENA_MAX_X := 1180.0
-const BALANCE_ANGLE_MIN := -PI * 0.5
-const BALANCE_ANGLE_MAX := PI * 0.5
-const RIDER_GROUND_PROBES := [Vector2(0, 14), Vector2(-10, 14), Vector2(10, 14)]
 
 var health := MAX_HEALTH
 var state := State.RIDING
 var weapon_type: WeaponDefs.Type = WeaponDefs.Type.NONE
 var _weapon_user: WeaponUser
-var _aim_angle := 0.0
+var _rig: UnicycleRig
 var _current_lean := 0.0
-var _wheel_spin := 0.0
 var _time_since_hit := REGEN_DELAY
 var _respawn_timer := 0.0
 var _ground_y := 490.0
 var _last_wheel_x := 0.0
 var _last_vel_x := 0.0
-var _balance_angle := 0.0
-var _balance_angular_vel := 0.0
 var _sustained_balance_push := 0.0
 
 @onready var wheel: RigidBody2D = $Wheel
@@ -87,6 +78,8 @@ func _ready() -> void:
 		_ground_y = arena.ground_surface_y()
 	wheel.global_position = _wheel_spawn_pos()
 	_last_wheel_x = wheel.global_position.x
+	_rig = UnicycleRig.bind(wheel)
+	_rig.facing = -1.0 if player_id == 2 else 1.0
 	_snap_to_ground()
 	wheel.lock_rotation = true
 	wheel.angular_damp = 0.0
@@ -94,6 +87,7 @@ func _ready() -> void:
 	wheel.max_contacts_reported = 4
 	wheel.contact_monitor = true
 	wheel.body_entered.connect(_on_wheel_body_entered)
+	_rig.sync_pose()
 	$Wheel/Rider/Visual.team_color = team_color
 	if GameManager.is_play_mode():
 		set_weapon_type(WeaponDefs.Type.MINIGUN)
@@ -118,6 +112,10 @@ func _setup_input() -> void:
 func get_player_id() -> int:
 	return player_id
 
+
+func get_facing() -> float:
+	return _rig.facing if _rig else 1.0
+
 func get_faction() -> Faction.Id:
 	return Faction.Id.PLAYER
 
@@ -129,7 +127,7 @@ func set_weapon_type(weapon: WeaponDefs.Type) -> void:
 	_emit_weapon_changed()
 
 func get_weapon_muzzle_global() -> Vector2:
-	return muzzle.global_position
+	return _rig.get_muzzle_global() if _rig else muzzle.global_position
 
 func can_pickup_loot(loot: Node) -> bool:
 	if loot.has_method("get_dropped_by") and loot.get_dropped_by() == player_id:
@@ -157,6 +155,7 @@ func _physics_process(delta: float) -> void:
 	match state:
 		State.RIDING:
 			_process_riding(delta)
+			_apply_environment_forces(delta)
 		State.RESPAWNING:
 			_respawn_timer -= delta
 			if _respawn_timer <= 0.0:
@@ -165,12 +164,36 @@ func _physics_process(delta: float) -> void:
 	_try_pickup_weapon()
 	_update_body_collision()
 	_stabilize_physics(delta)
-	_sync_wheel_spin(delta)
-	_update_aim()
+	_last_wheel_x = _rig.sync_wheel_spin(
+		delta,
+		wheel.global_position.x,
+		_last_wheel_x,
+		_current_lean,
+		_is_grounded(),
+		absf(_current_lean) if state == State.RIDING else 0.0
+	)
 	queue_redraw()
+
+func _apply_environment_forces(delta: float) -> void:
+	var env := MapEnvironment.find_in_tree(get_tree())
+	if env == null:
+		return
+	var sample := env.sample(wheel.global_position.x, wheel.global_position.y)
+	var vx := wheel.linear_velocity.x
+	vx = lerpf(vx, vx + float(sample.get("velocity_x", 0.0)), 1.0 - exp(-3.0 * delta))
+	wheel.linear_velocity.x = clampf(vx, -MAX_SPEED * 1.15, MAX_SPEED * 1.15)
+	var impulse_x: float = float(sample.get("impulse_x", 0.0))
+	var impulse_y: float = float(sample.get("impulse_y", 0.0))
+	if absf(impulse_x) > 0.01 or absf(impulse_y) > 0.01:
+		wheel.apply_central_impulse(Vector2(impulse_x, impulse_y) * delta * 0.35)
+	var push: float = float(sample.get("balance_push", 0.0))
+	if absf(push) > 0.001:
+		_rig.balance_angular_vel += push * delta
+
 
 func _process_riding(delta: float) -> void:
 	_current_lean = _read_lean()
+	_update_facing()
 	wheel.lock_rotation = true
 
 	if Input.is_action_pressed(_shoot_action):
@@ -210,28 +233,28 @@ func _update_balance(delta: float) -> void:
 	var inertia := -vx * INERTIA_FROM_SPEED - ax * INERTIA_FROM_ACCEL
 	var move_tilt := -_current_lean * MOVE_TILT
 	# Gravity slowly tips the rider further in whatever direction they lean.
-	var gravity := sin(_balance_angle) * GRAVITY_LEAN * weight_mult
+	var gravity := sin(_rig.balance_angle) * GRAVITY_LEAN * weight_mult
 	var recovery := 0.0
 
-	if _is_resting_on_ground_lean():
+	if _rig.is_resting_on_ground_lean():
 		# Gravity fighting the ground cap zeros velocity and feels "stuck".
-		if signf(gravity) == signf(_balance_angle):
+		if signf(gravity) == signf(_rig.balance_angle):
 			gravity = 0.0
 		# Move wheel toward the lean side (Q when fallen left, W when fallen right).
-		if _current_lean != 0.0 and signf(_current_lean) == signf(_balance_angle):
-			recovery = -signf(_balance_angle) * GET_UP_LEAN_RATE
+		if _current_lean != 0.0 and signf(_current_lean) == signf(_rig.balance_angle):
+			recovery = -signf(_rig.balance_angle) * GET_UP_LEAN_RATE
 		# Momentum in the fall direction makes it hard to stand back up.
-		if signf(inertia) == signf(_balance_angle):
+		if signf(inertia) == signf(_rig.balance_angle):
 			inertia *= 0.1
 
-	_balance_angular_vel += (inertia + move_tilt + gravity + recovery) * delta
-	_balance_angular_vel *= exp(-BALANCE_DAMP * delta)
-	_balance_angle += _balance_angular_vel * delta
-	_apply_balance_angle()
+	_rig.balance_angular_vel += (inertia + move_tilt + gravity + recovery) * delta
+	_rig.balance_angular_vel *= exp(-BALANCE_DAMP * delta)
+	_rig.balance_angle += _rig.balance_angular_vel * delta
+	_rig.enforce_balance_limits()
 	_update_fall_state()
 
 func _update_fall_state() -> void:
-	var fallen := _is_resting_on_ground_lean()
+	var fallen := _rig.is_resting_on_ground_lean()
 	if fallen and not _is_fallen:
 		_is_fallen = true
 		fell_over.emit()
@@ -247,109 +270,18 @@ func _process_sustained_recoil(delta: float) -> void:
 		return
 
 	var get_up_boost := 1.0
-	if _is_resting_on_ground_lean():
-		var fall_sign := signf(_balance_angle)
+	if _rig.is_resting_on_ground_lean():
+		var fall_sign := signf(_rig.balance_angle)
 		var push_sign := signf(_sustained_balance_push)
 		if push_sign != 0.0 and push_sign != fall_sign:
 			get_up_boost = MG_GET_UP_RECOIL_BOOST
 
-	_balance_angular_vel += _sustained_balance_push * MG_RECOIL_BALANCE_RATE * get_up_boost * delta
-	_apply_balance_angle()
+	_rig.balance_angular_vel += _sustained_balance_push * MG_RECOIL_BALANCE_RATE * get_up_boost * delta
+	_rig.enforce_balance_limits()
 
 	var decay := 1.0 if Input.is_action_pressed(_shoot_action) and _is_sustained_recoil_weapon() else 4.5
 	_sustained_balance_push = lerpf(_sustained_balance_push, 0.0, decay * delta)
 
-func _rider_lowest_wheel_local_y(angle: float) -> float:
-	var rider_pos := WHEEL_HUB + RIDER_OFFSET_FROM_HUB.rotated(angle)
-	var max_y := rider_pos.y
-	for probe in RIDER_GROUND_PROBES:
-		max_y = maxf(max_y, (rider_pos + probe.rotated(angle)).y)
-	return max_y
-
-func _max_balance_angle_for_ground(sign: float) -> float:
-	var lo := 0.0
-	var hi := PI * 0.5
-	for _i in 10:
-		var mid := (lo + hi) * 0.5
-		if _rider_lowest_wheel_local_y(mid * sign) <= 0.0:
-			lo = mid
-		else:
-			hi = mid
-	return lo * sign
-
-func _is_resting_on_ground_lean() -> bool:
-	if absf(_balance_angle) < 0.1:
-		return false
-	var sign := signf(_balance_angle)
-	var limit := absf(_max_balance_angle_for_ground(sign))
-	return absf(_balance_angle) >= limit - 0.05
-
-func _enforce_balance_limits() -> void:
-	var prev := _balance_angle
-	_balance_angle = clampf(_balance_angle, BALANCE_ANGLE_MIN, BALANCE_ANGLE_MAX)
-
-	var sign := signf(_balance_angle)
-	if sign != 0.0 and _rider_lowest_wheel_local_y(_balance_angle) > 0.0:
-		var allowed := _max_balance_angle_for_ground(sign)
-		if absf(_balance_angle) > absf(allowed):
-			_balance_angle = allowed
-			if signf(_balance_angular_vel) == sign:
-				_balance_angular_vel = 0.0
-
-	if _balance_angle <= BALANCE_ANGLE_MIN + 0.001 and _balance_angular_vel < 0.0:
-		_balance_angular_vel = 0.0
-	elif _balance_angle >= BALANCE_ANGLE_MAX - 0.001 and _balance_angular_vel > 0.0:
-		_balance_angular_vel = 0.0
-	elif not _is_resting_on_ground_lean() \
-			and signf(_balance_angle - prev) != signf(_balance_angular_vel) \
-			and absf(_balance_angle - prev) > 0.0001:
-		_balance_angular_vel = 0.0
-
-func _apply_balance_angle() -> void:
-	_enforce_balance_limits()
-	wheel.angular_velocity = 0.0
-	wheel.rotation = 0.0
-	rider.position = WHEEL_HUB + RIDER_OFFSET_FROM_HUB.rotated(_balance_angle)
-	rider.rotation = _balance_angle
-	if is_instance_valid(leg_back):
-		leg_back.position = rider.position
-		leg_back.rotation = rider.rotation
-
-func _set_balance(angle: float, ang_vel: float = 0.0) -> void:
-	_balance_angle = angle
-	_balance_angular_vel = ang_vel
-	_apply_balance_angle()
-
-func _sync_wheel_spin(delta: float) -> void:
-	var x := wheel.global_position.x
-	if not _is_grounded():
-		_last_wheel_x = x
-		_update_pedal_visual(delta, false)
-		return
-	var dx := x - _last_wheel_x
-	_last_wheel_x = x
-	if absf(dx) >= 0.0001:
-		# Rolling without slip: angle = arc_length / radius = dx / (2πr) × 2π
-		_wheel_spin += TAU * (dx / WHEEL_CIRCUMFERENCE)
-		wheel_visual.rotation = _wheel_spin
-	elif absf(_current_lean) > 0.01:
-		# Mash pedals in place when pushing but barely moving
-		_wheel_spin += _current_lean * 7.0 * delta
-	_update_pedal_visual(delta, true)
-
-func _update_pedal_visual(delta: float, grounded: bool) -> void:
-	if not is_instance_valid(pedals):
-		return
-	pedals.spin_angle = _wheel_spin
-	var target_intensity := absf(_current_lean) if state == State.RIDING and grounded else 0.0
-	pedals.pedaling_intensity = lerpf(pedals.pedaling_intensity, target_intensity, 1.0 - exp(-14.0 * delta))
-	pedals.queue_redraw()
-	if is_instance_valid(rider_visual):
-		rider_visual.queue_redraw()
-	if is_instance_valid(leg_back):
-		leg_back.queue_redraw()
-	if is_instance_valid(leg_front):
-		leg_front.queue_redraw()
 
 func _read_lean() -> float:
 	var lean := 0.0
@@ -360,25 +292,15 @@ func _read_lean() -> float:
 	return lean
 
 func _is_grounded() -> bool:
-	return _lowest_world_y() >= _ground_y - 12.0
+	if _rig == null:
+		return true
+	return _rig.lowest_world_y(wheel.global_position.y) >= _ground_y - 12.0
 
-func _wheel_contact_local_y() -> float:
-	# Only the lower semicircle touches the ground.
-	var max_y := 0.0
-	for i in 9:
-		var a := float(i) / 8.0 * PI
-		var p := WHEEL_HUB + Vector2(cos(a), sin(a)) * WHEEL_RADIUS
-		max_y = maxf(max_y, p.y)
-	return max_y
-
-func _lowest_local_y() -> float:
-	return _wheel_contact_local_y()
-
-func _lowest_world_y() -> float:
-	return wheel.global_position.y + _lowest_local_y()
 
 func _snap_to_ground() -> void:
-	var local_low := _wheel_contact_local_y()
+	if _rig == null:
+		return
+	var local_low := _rig.wheel_contact_local_y()
 	var pos := wheel.global_position
 	pos.y = _ground_y - local_low
 	wheel.global_position = pos
@@ -438,7 +360,7 @@ func _emit_weapon_changed() -> void:
 	weapon_changed.emit(weapon_type)
 
 func _try_attack() -> void:
-	var aim_dir := Vector2.RIGHT.rotated(_aim_angle)
+	var aim_dir := _rig.aim_direction()
 	var result := _weapon_user.try_attack(aim_dir)
 	if not result.get("fired", false):
 		return
@@ -472,8 +394,8 @@ func _apply_recoil(aim_dir: Vector2, data: Dictionary) -> void:
 
 	wheel.apply_central_impulse(recoil_dir * force + Vector2(0, -lift))
 	if state == State.RIDING:
-		_balance_angular_vel += torque * signf(recoil_dir.x) * 0.00065 * RECOIL_SCALE
-		_apply_balance_angle()
+		_rig.balance_angular_vel += torque * signf(recoil_dir.x) * 0.00065 * RECOIL_SCALE
+		_rig.enforce_balance_limits()
 
 func _recoil_multiplier(recoil_dir: Vector2) -> float:
 	var brace := _current_lean * signf(recoil_dir.x)
@@ -483,14 +405,35 @@ func _recoil_multiplier(recoil_dir: Vector2) -> float:
 		return lerpf(1.0, 1.55, absf(brace))
 	return 1.0
 
-func _update_aim() -> void:
-	var facing := _facing_sign()
-	_aim_angle = rider.rotation + (PI if facing < 0 else 0.0) + deg_to_rad(-8)
-
-func _facing_sign() -> float:
+func _update_facing() -> void:
 	if _current_lean != 0.0:
-		return signf(_current_lean)
-	return -1.0 if player_id == 2 else 1.0
+		_rig.set_facing(_current_lean)
+	elif absf(wheel.linear_velocity.x) > 6.0:
+		_rig.set_facing(wheel.linear_velocity.x)
+	elif Input.is_action_pressed(_shoot_action):
+		var target := _nearest_aim_target()
+		if target != null:
+			var dx := target.global_position.x - global_position.x
+			if absf(dx) > 8.0:
+				_rig.set_facing(dx)
+
+
+func _nearest_aim_target() -> Node2D:
+	var groups := ["enemies"] if GameManager.is_play_mode() else ["players"]
+	var best: Node2D = null
+	var best_dist := INF
+	for group_name in groups:
+		for node in get_tree().get_nodes_in_group(group_name):
+			if node == self or not is_instance_valid(node) or node is not Node2D:
+				continue
+			if node.has_method("get_player_id") and node.get_player_id() == player_id:
+				continue
+			var dist := global_position.distance_squared_to(node.global_position)
+			if dist < best_dist:
+				best_dist = dist
+				best = node
+	return best
+
 
 func take_damage(amount: int, from: Node2D = null) -> void:
 	if state != State.RIDING:
@@ -500,7 +443,7 @@ func take_damage(amount: int, from: Node2D = null) -> void:
 	_time_since_hit = 0.0
 	health_changed.emit(health, MAX_HEALTH)
 	wheel.apply_central_impulse(Vector2(randf_range(-20, 20), -35))
-	_balance_angular_vel += randf_range(-1.8, 1.8)
+	_rig.balance_angular_vel += randf_range(-1.8, 1.8)
 
 	if health <= 0:
 		_start_respawn(from)
@@ -522,15 +465,13 @@ func _finish_respawn() -> void:
 	wheel.global_position = _wheel_spawn_pos()
 	_last_wheel_x = wheel.global_position.x
 	wheel.linear_velocity = Vector2.ZERO
-	_set_balance(0.0, 0.0)
+	_rig.set_balance(0.0, 0.0)
 	_is_fallen = false
 	_sustained_balance_push = 0.0
 	_last_vel_x = 0.0
-	_wheel_spin = 0.0
-	wheel_visual.rotation = 0.0
-	if is_instance_valid(pedals):
-		pedals.spin_angle = 0.0
-		pedals.pedaling_intensity = 0.0
+	_rig.reset_wheel_spin()
+	_rig.facing = -1.0 if player_id == 2 else 1.0
+	_rig.sync_pose()
 	if is_instance_valid(leg_back) and leg_back.has_method("reset_pose"):
 		leg_back.reset_pose()
 	if is_instance_valid(leg_front) and leg_front.has_method("reset_pose"):
@@ -554,7 +495,7 @@ func apply_explosion_knockback(impulse: Vector2) -> void:
 	var scaled := impulse * KNOCKBACK_SCALE
 	wheel.apply_central_impulse(scaled)
 	if state == State.RIDING:
-		_balance_angular_vel += scaled.x * 0.0012
+		_rig.balance_angular_vel += scaled.x * 0.0012
 
 func apply_harpoon_pull(from: Node2D, hit_pos: Vector2) -> void:
 	var dir := (from.global_position - global_position).normalized()
@@ -565,9 +506,9 @@ func apply_harpoon_recoil_pull(hit_pos: Vector2) -> void:
 	wheel.apply_central_impulse(dir * 200.0)
 
 func _draw() -> void:
-	if not is_instance_valid(rider):
+	if not is_instance_valid(rider) or _rig == null:
 		return
-	var bar_pos := rider.global_position - global_position + Vector2(-28, -72)
+	var bar_pos := _rig.rider_bar_anchor(self)
 	Shapes.rounded_rect(self, Rect2(bar_pos, Vector2(56, 7)), 3.0, Color(0.08, 0.08, 0.08, 0.85))
 	var fill := 56.0 * (float(health) / MAX_HEALTH)
 	var bar_color := team_color if health > 30 else Color(1, 0.35, 0.3)

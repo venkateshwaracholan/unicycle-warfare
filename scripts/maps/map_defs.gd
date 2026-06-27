@@ -256,5 +256,5 @@ static func enemy_spawn_positions(map_id: MapId, ground_surface_y: float, count:
 	for i in count:
 		var t := float(i % 5) / 4.0 if count > 1 else 0.5
 		var x := lerpf(float(zone.x_min), float(zone.x_max), t)
-		positions.append(Vector2(x, ground_surface_y - 14.0))
+		positions.append(Vector2(x, ground_surface_y))
 	return positions

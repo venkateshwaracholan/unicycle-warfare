@@ -132,16 +132,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _rebuild_arena() -> void:
+	arena._configure_map()
 	var gy := arena.ground_y
 	ground.position = Vector2(640, gy)
 	left_wall.position = Vector2(60, gy - 30)
 	right_wall.position = Vector2(1220, gy - 30)
 	hill_zone.position = Vector2(640, gy - 60)
+	var tagline := arena.get_biome_tagline()
+	var map_line := arena.get_map_name()
+	if not tagline.is_empty():
+		map_line = "%s · %s" % [map_line, tagline]
 	if GameManager.is_play_mode():
-		mode_label.text = "%s — %s" % [MissionManager.mission_name, arena.get_map_name()]
+		mode_label.text = "%s — %s" % [MissionManager.mission_name, map_line]
 	else:
 		hill_zone.visible = GameManager.current_mode == GameManager.Mode.KING_OF_HILL
-		mode_label.text = "%s — %s" % [GameManager.mode_name(), arena.get_map_name()]
+		mode_label.text = "%s — %s" % [GameManager.mode_name(), map_line]
 
 
 func spawn_weapon_pickup(global_pos: Vector2, weapon: WeaponDefs.Type, velocity: Vector2, dropped_by: int = 0) -> void:

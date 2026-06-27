@@ -15,8 +15,8 @@ static func drop_weapon_from_player(player: Node2D, world: Node) -> void:
 	var muzzle: Node2D = player.get_node_or_null("Wheel/Rider/Muzzle")
 	var origin := muzzle.global_position if muzzle else player.global_position
 	var facing := 1.0
-	if player.has_method("_facing_sign"):
-		facing = player.call("_facing_sign")
+	if player.has_method("get_facing"):
+		facing = player.call("get_facing")
 
 	var velocity := Vector2(facing * randf_range(60.0, 140.0), randf_range(-160.0, -60.0))
 	spawn_weapon_pickup(world, origin, current, velocity, player.get_player_id())
