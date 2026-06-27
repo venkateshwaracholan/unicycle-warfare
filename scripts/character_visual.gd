@@ -5,6 +5,7 @@ extends Node2D
 @export var team_color := Color.RED
 
 const SHORTS_COLOR := Color(0.45, 0.28, 0.16)
+const Shapes := preload("res://scripts/draw_shapes.gd")
 
 func _draw() -> void:
 	if is_rider:
@@ -25,14 +26,13 @@ func _draw_wheel() -> void:
 
 func _draw_rider() -> void:
 	var hub_local := _hub_local()
-	# Jersey down to the seat — legs attach at y = 8.
-	draw_rect(Rect2(-12, -30, 24, 38), team_color)
-	draw_rect(Rect2(-10, 0, 20, 8), SHORTS_COLOR)
-	draw_rect(Rect2(-10, -48, 20, 18), Color(0.92, 0.78, 0.45))
-	draw_rect(Rect2(-14, -54, 28, 8), Color(0.15, 0.12, 0.1))
-	draw_rect(Rect2(-8, -60, 16, 8), Color(0.15, 0.12, 0.1))
+	Shapes.rounded_rect(self, Rect2(-12, -30, 24, 38), 4.0, team_color)
+	Shapes.rounded_rect(self, Rect2(-10, 0, 20, 8), 3.0, SHORTS_COLOR)
+	Shapes.rounded_rect(self, Rect2(-10, -48, 20, 18), 4.0, Color(0.92, 0.78, 0.45))
+	Shapes.rounded_rect(self, Rect2(-14, -54, 28, 8), 2.0, Color(0.15, 0.12, 0.1))
+	Shapes.rounded_rect(self, Rect2(-8, -60, 16, 8), 3.0, Color(0.15, 0.12, 0.1))
 	_draw_seat_post(hub_local)
-	draw_rect(Rect2(8, -22, 18, 6), Color(0.35, 0.35, 0.38))
+	Shapes.rounded_rect(self, Rect2(8, -22, 18, 6), 2.0, Color(0.35, 0.35, 0.38))
 
 func _hub_local() -> Vector2:
 	var wheel := get_parent().get_parent()

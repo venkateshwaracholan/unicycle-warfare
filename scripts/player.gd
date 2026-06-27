@@ -9,6 +9,7 @@ enum State { RIDING, RESPAWNING }
 const BULLET_SCENE := preload("res://scenes/bullet.tscn")
 const GRENADE_SCENE := preload("res://scenes/grenade.tscn")
 const WEAPON_PICKUP_SCENE := preload("res://scenes/weapon_pickup.tscn")
+const Shapes := preload("res://scripts/draw_shapes.gd")
 
 const MAX_HEALTH := 100
 const WHEEL_RADIUS := 22.0
@@ -562,10 +563,11 @@ func _draw() -> void:
 	if not is_instance_valid(rider):
 		return
 	var bar_pos := rider.global_position - global_position + Vector2(-28, -72)
-	draw_rect(Rect2(bar_pos, Vector2(56, 7)), Color(0.08, 0.08, 0.08, 0.85))
+	Shapes.rounded_rect(self, Rect2(bar_pos, Vector2(56, 7)), 3.0, Color(0.08, 0.08, 0.08, 0.85))
 	var fill := 56.0 * (float(health) / MAX_HEALTH)
 	var bar_color := team_color if health > 30 else Color(1, 0.35, 0.3)
-	draw_rect(Rect2(bar_pos, Vector2(fill, 7)), bar_color)
+	if fill > 0.0:
+		Shapes.rounded_rect(self, Rect2(bar_pos, Vector2(fill, 7)), 3.0, bar_color)
 
 	var font := ThemeDB.fallback_font
 	var wdata := WeaponDefs.get_data(weapon_type)

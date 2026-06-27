@@ -7,9 +7,10 @@ const SEAT := Vector2(0, 4)
 const HIP := SEAT
 const THIGH_LEN := 27.0
 const SHIN_LEN := 26.0
-const THIGH_THICK := 7.0
-const SHIN_THICK := 6.0
+const THIGH_THICK := 9.0
+const SHIN_THICK := 8.0
 const BEND_FORWARD := Vector2(1.0, 0.0)
+const Shapes := preload("res://scripts/draw_shapes.gd")
 
 func _draw() -> void:
 	var pedal_pos := _pedal_local()
@@ -93,14 +94,10 @@ func _draw_leg_pose(leg: Dictionary) -> void:
 	_draw_shoe(pedal, knee)
 
 func _draw_limb_block(from: Vector2, to: Vector2, thickness: float, color: Color) -> void:
-	var dir := to - from
-	if dir.length_squared() < 0.01:
-		return
-	dir = dir.normalized()
-	var perp := Vector2(-dir.y, dir.x) * thickness * 0.5
-	draw_colored_polygon(PackedVector2Array([
-		from + perp, from - perp, to - perp, to + perp,
-	]), color)
+	Shapes.capsule(self, from, to, thickness, color)
+
+func _draw_rounded_rect(rect: Rect2, fill: Color, radius: float = 2.0) -> void:
+	Shapes.rounded_rect(self, rect, radius, fill)
 
 func _draw_shoe(pedal: Vector2, knee: Vector2) -> void:
 	if draw_behind:
@@ -111,11 +108,11 @@ func _draw_shoe(pedal: Vector2, knee: Vector2) -> void:
 	var angle := to_knee.angle() + PI * 0.5 if to_knee.length_squared() > 0.01 else 0.0
 	var shoe := Color(0.15, 0.35, 0.68) if draw_behind else Color(0.22, 0.45, 0.82)
 	draw_set_transform(pedal, angle, Vector2.ONE)
-	draw_rect(Rect2(-w * 0.5, -h * 0.5, w, h), shoe)
-	draw_rect(Rect2(-w * 0.5, h * 0.5 - 2.0, w, 2.0), Color(0.92, 0.92, 0.94))
+	_draw_rounded_rect(Rect2(-w * 0.5, -h * 0.5, w, h), shoe)
+	_draw_rounded_rect(Rect2(-w * 0.5, h * 0.5 - 2.0, w, 2.0), Color(0.92, 0.92, 0.94))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	draw_rect(Rect2(pedal.x - 3.0, pedal.y - 9.0, 6.0, 5.0), Color(0.92, 0.92, 0.94))
-	draw_rect(Rect2(pedal.x - 3.0, pedal.y - 9.0, 6.0, 2.0), _team_color())
+	_draw_rounded_rect(Rect2(pedal.x - 3.0, pedal.y - 9.0, 6.0, 5.0), Color(0.92, 0.92, 0.94))
+	_draw_rounded_rect(Rect2(pedal.x - 3.0, pedal.y - 9.0, 6.0, 2.0), _team_color())
 
 func _draw_back_pedal(pedal: Vector2) -> void:
 	var tangent := Vector2(1, 0)
