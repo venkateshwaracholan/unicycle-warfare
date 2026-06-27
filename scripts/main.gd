@@ -92,9 +92,10 @@ func _session_title() -> String:
 
 
 func _session_message() -> String:
+	var zoom_hint := " · scroll/+/- zoom · 1/2 face · 0 reset"
 	if GameManager.is_play_mode():
-		return "Q/W pedal · A/D aim · E shoot · fall drops weapon · Menu (top-right)"
-	return "Q/W pedal · A/D aim · E shoot · weapons from sky · Tab=mode · Menu (top-right)"
+		return "Q/W pedal · A/D aim · E shoot · fall drops weapon · Menu (top-right)" + zoom_hint
+	return "Q/W pedal · A/D aim · E shoot · weapons from sky · Tab=mode · Menu (top-right)" + zoom_hint
 
 
 func set_mission_message(text: String) -> void:

@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/test_arena.gd" id="1_test"]
 [ext_resource type="Script" path="res://scripts/arena.gd" id="2_arena"]
 [ext_resource type="Script" path="res://scripts/hill_zone.gd" id="3_hill"]
+[ext_resource type="Script" path="res://scripts/game_camera.gd" id="4_camera"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(1400, 40)
@@ -21,6 +22,7 @@ script = ExtResource("2_arena")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(640, 360)
+script = ExtResource("4_camera")
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(640, 490)

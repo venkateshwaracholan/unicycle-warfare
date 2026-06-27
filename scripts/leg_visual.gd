@@ -90,7 +90,7 @@ func _solve_leg(hip: Vector2, pedal: Vector2) -> Dictionary:
 	return {"hip": hip, "knee": knee, "foot": foot, "pedal": pedal}
 
 func _pick_knee(hip: Vector2, cand_a: Vector2, cand_b: Vector2) -> Vector2:
-	var bend := Vector2(_facing_sign(), 0.0)
+	var bend := Vector2(_leg_forward_x(), 0.0)
 	var score_a := (cand_a - hip).dot(bend)
 	var score_b := (cand_b - hip).dot(bend)
 	if score_a >= 0.0 and score_b < 0.0:
@@ -98,6 +98,16 @@ func _pick_knee(hip: Vector2, cand_a: Vector2, cand_b: Vector2) -> Vector2:
 	if score_b >= 0.0 and score_a < 0.0:
 		return cand_b
 	return cand_a if score_a >= score_b else cand_b
+
+
+func _leg_forward_x() -> float:
+	# MoveFacing already mirrors leg space; forward is always +X local under it.
+	var node: Node = self
+	while node != null:
+		if node.name == "MoveFacing":
+			return 1.0
+		node = node.get_parent()
+	return _facing_sign()
 
 
 func _facing_sign() -> float:
@@ -110,6 +120,7 @@ func _facing_sign() -> float:
 				sign *= signf(n2d.scale.x)
 		node = node.get_parent()
 	return signf(sign) if sign != 0.0 else 1.0
+
 
 func _draw_leg_pose(leg: Dictionary) -> void:
 	var hip: Vector2 = leg["hip"]

@@ -6,6 +6,10 @@ extends Node2D
 @export var team_color := Color.RED
 
 const SHORTS_COLOR := Color(0.45, 0.28, 0.16)
+const SKIN_COLOR := Color(0.92, 0.78, 0.45)
+const BEARD_COLOR := Color(0.40, 0.24, 0.12)
+const BEARD_DARK := Color(0.28, 0.16, 0.08)
+const HAT_COLOR := Color(0.15, 0.12, 0.1)
 const WIRE_SPOKE_COUNT := 20
 const BLADE_SPOKE_COUNT := 3
 const Shapes := preload("res://scripts/draw_shapes.gd")
@@ -100,12 +104,83 @@ func _draw_blade_spokes(rim_attach: float) -> void:
 func _draw_upper_body() -> void:
 	var hub_local := _hub_local()
 	Shapes.rounded_rect(self, Rect2(-12, -30, 24, 38), 4.0, team_color)
-	Shapes.rounded_rect(self, Rect2(-10, -48, 20, 18), 4.0, Color(0.92, 0.78, 0.45))
-	Shapes.rounded_rect(self, Rect2(-14, -54, 28, 8), 2.0, Color(0.15, 0.12, 0.1))
-	Shapes.rounded_rect(self, Rect2(-8, -60, 16, 8), 3.0, Color(0.15, 0.12, 0.1))
+	Shapes.rounded_rect(self, Rect2(-10, -48, 20, 18), 4.0, SKIN_COLOR)
+	_draw_cowboy_face()
+	_draw_cowboy_hat()
 	_draw_seat_post(hub_local)
 	# Gun always points +X in upper-body space; UpperBody scale.x = aim_facing.
 	Shapes.rounded_rect(self, Rect2(8, -22, 18, 6), 2.0, Color(0.35, 0.35, 0.38))
+
+
+func _draw_cowboy_hat() -> void:
+	Shapes.rounded_rect(self, Rect2(-14, -54, 28, 8), 2.0, HAT_COLOR)
+	Shapes.rounded_rect(self, Rect2(-8, -60, 16, 8), 3.0, HAT_COLOR)
+
+
+func _draw_cowboy_face() -> void:
+	_draw_eyes()
+	_draw_mustache()
+	_draw_beard()
+
+
+func _draw_eyes() -> void:
+	var eye_y := -44.5
+	var eye_forward := 1.5
+	var eye_positions := PackedVector2Array([
+		Vector2(-3.0 + eye_forward, eye_y),
+		Vector2(4.0 + eye_forward, eye_y),
+	])
+	for i in eye_positions.size():
+		var center: Vector2 = eye_positions[i]
+		var brow_tilt := -0.18 if i == 0 else 0.12
+		draw_line(
+			center + Vector2(-3.0, -4.0),
+			center + Vector2(3.0, -4.0).rotated(brow_tilt),
+			BEARD_DARK,
+			1.6
+		)
+		draw_circle(center, 2.8, Color(0.98, 0.98, 0.96))
+		var pupil: Vector2 = center + Vector2(1.2, 0.15)
+		draw_circle(pupil, 1.4, Color(0.10, 0.08, 0.06))
+		draw_circle(pupil + Vector2(0.3, -0.3), 0.4, Color(1.0, 1.0, 1.0, 0.7))
+
+
+func _draw_mustache() -> void:
+	var lip := Vector2(1.0, -37.0)
+	draw_circle(lip, 2.0, BEARD_COLOR)
+	var left_curl := PackedVector2Array([
+		lip + Vector2(-1.0, 0.5),
+		lip + Vector2(-5.5, 1.5),
+		lip + Vector2(-8.0, 4.0),
+		lip + Vector2(-6.5, 6.0),
+		lip + Vector2(-3.0, 4.0),
+	])
+	var right_curl := PackedVector2Array([
+		lip + Vector2(1.0, 0.5),
+		lip + Vector2(5.0, 1.0),
+		lip + Vector2(8.5, 3.0),
+		lip + Vector2(7.0, 6.0),
+		lip + Vector2(3.5, 4.0),
+	])
+	draw_colored_polygon(left_curl, BEARD_DARK)
+	draw_colored_polygon(right_curl, BEARD_COLOR)
+
+
+func _draw_beard() -> void:
+	var chin := Vector2(0.5, -32.0)
+	var fork := PackedVector2Array([
+		chin + Vector2(-5.0, 0.0),
+		chin + Vector2(-2.8, 8.0),
+		chin + Vector2(-1.2, 10.0),
+		chin + Vector2(0.0, 5.0),
+		chin + Vector2(1.2, 10.0),
+		chin + Vector2(2.8, 8.0),
+		chin + Vector2(5.0, 0.0),
+		chin + Vector2(2.5, -1.0),
+		chin + Vector2(0.0, -0.5),
+		chin + Vector2(-2.5, -1.0),
+	])
+	draw_colored_polygon(fork, BEARD_COLOR)
 
 func _hub_local() -> Vector2:
 	var node: Node = get_parent()
