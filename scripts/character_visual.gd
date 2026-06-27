@@ -25,9 +25,9 @@ func _draw_wheel() -> void:
 
 func _draw_rider() -> void:
 	var hub_local := _hub_local()
-	# Torso only — leave room for both legs beside the narrow pelvis.
-	draw_rect(Rect2(-12, -30, 24, 22), team_color)
-	draw_rect(Rect2(-5, -8, 10, 8), SHORTS_COLOR)
+	# Jersey down to the seat — legs attach at y = 8.
+	draw_rect(Rect2(-12, -30, 24, 38), team_color)
+	draw_rect(Rect2(-10, 0, 20, 8), SHORTS_COLOR)
 	draw_rect(Rect2(-10, -48, 20, 18), Color(0.92, 0.78, 0.45))
 	draw_rect(Rect2(-14, -54, 28, 8), Color(0.15, 0.12, 0.1))
 	draw_rect(Rect2(-8, -60, 16, 8), Color(0.15, 0.12, 0.1))
@@ -44,5 +44,6 @@ func _hub_local() -> Vector2:
 	return Vector2(0, 38)
 
 func _draw_seat_post(hub_local: Vector2) -> void:
-	draw_line(Vector2(0, 0), hub_local, Color(0.28, 0.28, 0.32), 5.0)
-	draw_line(Vector2(0, 0), hub_local, Color(0.45, 0.45, 0.5), 2.0)
+	var seat := Vector2(0, 8)
+	draw_line(seat, hub_local, Color(0.28, 0.28, 0.32), 5.0)
+	draw_line(seat, hub_local, Color(0.45, 0.45, 0.5), 2.0)

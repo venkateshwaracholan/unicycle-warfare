@@ -3,7 +3,7 @@ extends Node2D
 @export var pedal_index := 0
 @export var draw_behind := false
 
-const SEAT := Vector2(0, 8)
+const SEAT := Vector2(0, 4)
 const HIP := SEAT
 const THIGH_LEN := 27.0
 const SHIN_LEN := 26.0
