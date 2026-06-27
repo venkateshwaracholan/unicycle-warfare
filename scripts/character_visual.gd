@@ -5,6 +5,8 @@ extends Node2D
 @export var team_color := Color.RED
 
 const SHORTS_COLOR := Color(0.45, 0.28, 0.16)
+const WHEEL_SPOKE_COUNT := 18
+const PROMINENT_SPOKE_COUNT := 3
 const Shapes := preload("res://scripts/draw_shapes.gd")
 
 func _draw() -> void:
@@ -17,25 +19,56 @@ func _draw_wheel() -> void:
 	var tire_r := 22.0
 	var tire_w := 5.0
 	var tire_inner := tire_r - tire_w * 0.5
-	# Spokes first, then tire band covers the outer spoke ends at the rim.
+	# Fine spokes first, then three bold spokes every 120 degrees.
 	_draw_spokes(tire_inner)
+	_draw_prominent_spokes(tire_inner)
+	draw_arc(Vector2.ZERO, tire_inner - 0.8, 0, TAU, 48, Color(0.34, 0.34, 0.38), 1.2)
 	draw_arc(Vector2.ZERO, tire_r, 0, TAU, 48, Color(0.12, 0.12, 0.14), tire_w)
-	draw_circle(Vector2.ZERO, 7, Color(0.32, 0.32, 0.36))
-	draw_circle(Vector2.ZERO, 5, Color(0.45, 0.45, 0.5))
+	_draw_hub()
+
+func _draw_hub() -> void:
+	draw_circle(Vector2.ZERO, 7.0, Color(0.28, 0.28, 0.32))
+	draw_arc(Vector2.ZERO, 6.2, 0, TAU, 24, Color(0.40, 0.40, 0.44), 1.4)
+	draw_circle(Vector2.ZERO, 4.8, Color(0.22, 0.22, 0.26))
+	draw_circle(Vector2.ZERO, 3.2, Color(0.48, 0.48, 0.52))
 
 func _draw_spokes(tire_inner: float) -> void:
-	# Six spokes from hub flange to the inner edge of the tire rubber.
-	const SPOKE_COUNT := 6
-	const HUB_RADIUS := 6.0
-	var dark := Color(0.38, 0.38, 0.42)
-	var light := Color(0.58, 0.58, 0.62)
-	for i in SPOKE_COUNT:
-		var angle := float(i) / float(SPOKE_COUNT) * TAU - PI * 0.5
+	# Traditional radial spokes: straight wires from hub flange to rim.
+	const HUB_ATTACH := 5.5
+	var rim_attach := tire_inner - 0.6
+	var shadow := Color(0.32, 0.32, 0.36)
+	var highlight := Color(0.56, 0.56, 0.60)
+	var nipple := Color(0.50, 0.50, 0.54)
+
+	for i in WHEEL_SPOKE_COUNT:
+		var angle := _spoke_angle(i)
 		var dir := Vector2(cos(angle), sin(angle))
-		var from := dir * HUB_RADIUS
-		var to := dir * tire_inner
-		draw_line(from, to, dark, 3.0)
-		draw_line(from, to, light, 1.5)
+		var from := dir * HUB_ATTACH
+		var to := dir * rim_attach
+		Shapes.capsule(self, from, to, 1.2, shadow)
+		Shapes.capsule(self, from, to, 0.6, highlight)
+		draw_circle(to, 0.8, nipple)
+
+func _spoke_angle(index: int) -> float:
+	return float(index) / float(WHEEL_SPOKE_COUNT) * TAU - PI * 0.5
+
+func _prominent_spoke_angle(index: int) -> float:
+	return float(index) / float(PROMINENT_SPOKE_COUNT) * TAU - PI * 0.5
+
+func _draw_prominent_spokes(tire_inner: float) -> void:
+	const HUB_ATTACH := 5.5
+	var rim_attach := tire_inner - 0.6
+	var shadow := Color(0.10, 0.10, 0.12)
+	var highlight := Color(0.28, 0.28, 0.32)
+	var nipple := Color(0.18, 0.18, 0.22)
+
+	for i in PROMINENT_SPOKE_COUNT:
+		var dir := Vector2(cos(_prominent_spoke_angle(i)), sin(_prominent_spoke_angle(i)))
+		var from := dir * HUB_ATTACH
+		var to := dir * rim_attach
+		Shapes.capsule(self, from, to, 4.2, shadow)
+		Shapes.capsule(self, from, to, 2.4, highlight)
+		draw_circle(to, 1.4, nipple)
 
 func _draw_rider() -> void:
 	var hub_local := _hub_local()
