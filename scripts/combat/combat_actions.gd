@@ -179,6 +179,8 @@ static func try_pickup_nearby(user: WeaponUser, radius: float = PICKUP_RADIUS) -
 	for loot in user.owner.get_tree().get_nodes_in_group("weapon_loot"):
 		if not is_instance_valid(loot) or not loot.has_method("get_weapon_type"):
 			continue
+		if loot.has_method("is_pickupable") and not loot.is_pickupable():
+			continue
 		if user.owner.has_method("can_pickup_loot") and not user.owner.can_pickup_loot(loot):
 			continue
 		var dist: float = user.owner.global_position.distance_to(loot.global_position)

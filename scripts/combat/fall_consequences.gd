@@ -88,10 +88,10 @@ static func drop_weapon_from_blast_unit(unit: Node2D, blast_impulse: Vector2, dr
 	var dir := blast_impulse.normalized() if blast_impulse.length_squared() > 1.0 else Vector2(0.8, -0.45).normalized()
 	var strength := clampf(blast_impulse.length() * 0.55, 120.0, 340.0)
 	var horiz_sign := signf(dir.x) if absf(dir.x) > 0.12 else (1.0 if randf() > 0.5 else -1.0)
-	var horiz_speed := maxf(absf(dir.x) * strength * 1.35, randf_range(110.0, 190.0))
+	var horiz_speed := maxf(absf(dir.x) * strength * 2.1, randf_range(200.0, 360.0))
 	var launch := Vector2(
-		horiz_sign * horiz_speed + randf_range(-40.0, 40.0),
-		minf(dir.y, -0.15) * strength * 0.55 + randf_range(-150.0, -70.0)
+		horiz_sign * horiz_speed + randf_range(-55.0, 55.0),
+		minf(dir.y, -0.15) * strength * 0.45 + randf_range(-130.0, -60.0)
 	)
 	spawn_weapon_pickup(world, origin, current, launch, dropped_by)
 	if unit.has_method("set_weapon_type"):

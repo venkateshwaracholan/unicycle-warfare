@@ -37,7 +37,7 @@ func _ready() -> void:
 	_update_hud()
 	title_label.text = _session_title()
 	message_label.text = _session_message()
-	_setup_menu_button()
+	_setup_hud_buttons()
 
 
 func _setup_play_mode() -> void:
@@ -65,22 +65,38 @@ func _setup_loadout_panel() -> void:
 		_loadout_panel.bind_player(_players[0])
 
 
-func _setup_menu_button() -> void:
-	var btn := Button.new()
-	btn.name = "MenuButton"
-	btn.text = "Menu"
-	btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	btn.offset_left = -88.0
-	btn.offset_top = 8.0
-	btn.offset_right = -8.0
-	btn.offset_bottom = 36.0
-	btn.add_theme_font_size_override("font_size", 14)
-	btn.pressed.connect(_on_menu_button_pressed)
-	hud.add_child(btn)
+func _setup_hud_buttons() -> void:
+	var menu_btn := Button.new()
+	menu_btn.name = "MenuButton"
+	menu_btn.text = "Menu"
+	menu_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	menu_btn.offset_left = -88.0
+	menu_btn.offset_top = 8.0
+	menu_btn.offset_right = -8.0
+	menu_btn.offset_bottom = 36.0
+	menu_btn.add_theme_font_size_override("font_size", 14)
+	menu_btn.pressed.connect(_on_menu_button_pressed)
+	hud.add_child(menu_btn)
+
+	var retry_btn := Button.new()
+	retry_btn.name = "RetryButton"
+	retry_btn.text = "Retry"
+	retry_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	retry_btn.offset_left = -168.0
+	retry_btn.offset_top = 8.0
+	retry_btn.offset_right = -92.0
+	retry_btn.offset_bottom = 36.0
+	retry_btn.add_theme_font_size_override("font_size", 14)
+	retry_btn.pressed.connect(_on_retry_pressed)
+	hud.add_child(retry_btn)
 
 
 func _on_menu_button_pressed() -> void:
 	GameManager.return_to_garage()
+
+
+func _on_retry_pressed() -> void:
+	get_tree().reload_current_scene()
 
 
 func _apply_session() -> void:
@@ -102,8 +118,8 @@ func _session_message() -> String:
 	var zoom_hint := " · scroll/+/- zoom · 1/2 face · 0 reset"
 	var fall_hint := " · " + FallConsequences.rules_hint()
 	if GameManager.is_play_mode():
-		return "Q/W pedal · A/D aim · E shoot" + fall_hint + " · Menu (top-right)" + zoom_hint
-	return "Q/W pedal · A/D aim · E shoot · J=loadout" + fall_hint + " · Tab=mode · M=map · Menu (top-right)" + zoom_hint
+		return "Q/W pedal · A/D aim · E shoot" + fall_hint + " · Retry/Menu (top-right)" + zoom_hint
+	return "Q/W pedal · A/D aim · E shoot · J=loadout" + fall_hint + " · Tab=mode · M=map · Retry/Menu (top-right)" + zoom_hint
 
 
 func set_mission_message(text: String) -> void:
@@ -116,7 +132,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("restart_match"):
-		get_tree().reload_current_scene()
+		_on_retry_pressed()
 		get_viewport().set_input_as_handled()
 		return
 	if not GameManager.is_play_mode() and event.is_action_pressed("weapon_loadout"):
@@ -237,7 +253,7 @@ func _on_mode_changed(_mode: GameManager.Mode) -> void:
 
 
 func _on_match_won(winner_id: int, _mode: GameManager.Mode) -> void:
-	message_label.text = "PLAYER %d WINS!  Menu (top-right)  F5=restart" % winner_id
+	message_label.text = "PLAYER %d WINS!  Retry/Menu (top-right)  F5=retry" % winner_id
 
 
 func _update_hud() -> void:

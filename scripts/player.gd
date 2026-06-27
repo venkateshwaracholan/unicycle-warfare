@@ -153,6 +153,8 @@ func get_weapon_muzzle_global() -> Vector2:
 	return _rig.get_muzzle_global() if _rig else muzzle.global_position
 
 func can_pickup_loot(loot: Node) -> bool:
+	if loot.has_method("is_pickupable") and not loot.is_pickupable():
+		return false
 	if loot.has_method("get_dropped_by") and loot.get_dropped_by() == player_id:
 		if loot.has_method("get_drop_age") and loot.get_drop_age() < FallConsequences.DROP_COOLDOWN:
 			return false

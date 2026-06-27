@@ -17,11 +17,21 @@ func _ready() -> void:
 	var arena := get_tree().get_first_node_in_group("arena")
 	if arena:
 		ground_y = arena.ground_surface_y() + 2.0
+	call_deferred("_sync_ground_state")
+
+
+func _sync_ground_state() -> void:
+	if _settled or velocity.length_squared() >= 1.0:
+		return
+	if position.y >= ground_y - 4.0:
+		position.y = ground_y
+		velocity = Vector2.ZERO
+		_settled = true
 
 func _physics_process(delta: float) -> void:
 	if not _settled:
 		velocity.y += 980.0 * delta
-		velocity.x *= pow(0.92, delta * 60.0)
+		velocity.x *= pow(0.965, delta * 60.0)
 		position += velocity * delta
 		if position.y >= ground_y:
 			position.y = ground_y
@@ -53,6 +63,10 @@ func get_dropped_by() -> int:
 
 func get_drop_age() -> float:
 	return Time.get_ticks_msec() / 1000.0 - _spawn_time
+
+
+func is_pickupable() -> bool:
+	return _settled
 
 func _draw() -> void:
 	WeaponVisual.draw_ground(self, weapon_type)
