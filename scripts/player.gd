@@ -48,17 +48,20 @@ var _sustained_balance_push := 0.0
 @onready var wheel: RigidBody2D = $Wheel
 @onready var wheel_visual: Node2D = $Wheel/Visual
 @onready var pedals: Node2D = $Wheel/Pedals
-@onready var rider: Node2D = $Wheel/Rider
-@onready var rider_visual: Node2D = $Wheel/Rider/Visual
-@onready var leg_back: Node2D = $Wheel/LegBack
-@onready var leg_front: Node2D = $Wheel/Rider/LegFront
+@onready var pelvis: Node2D = $Wheel/Pelvis
+@onready var upper_body: Node2D = $Wheel/Pelvis/UpperBody
+@onready var rider_visual: Node2D = $Wheel/Pelvis/UpperBody/Visual
+@onready var leg_back: Node2D = $Wheel/LegBackPivot/MoveFacing/LegBack
+@onready var leg_front: Node2D = $Wheel/Pelvis/MoveFacing/LegFront
 @onready var body_collision: CollisionShape2D = $Wheel/BodyCollision
 @onready var pickup_area: Area2D = $PickupArea
-@onready var muzzle: Marker2D = $Wheel/Rider/Muzzle
+@onready var muzzle: Marker2D = $Wheel/Pelvis/UpperBody/Muzzle
 
 var _lean_back_action: String
 var _lean_forward_action: String
 var _shoot_action: String
+var _aim_left_action: String
+var _aim_right_action: String
 
 signal eliminated(victim: Node2D, killer: Node2D)
 signal health_changed(current: int, maximum: int)
@@ -80,6 +83,7 @@ func _ready() -> void:
 	_last_wheel_x = wheel.global_position.x
 	_rig = UnicycleRig.bind(wheel)
 	_rig.facing = -1.0 if player_id == 2 else 1.0
+	_rig.aim_facing = _rig.facing
 	_snap_to_ground()
 	wheel.lock_rotation = true
 	wheel.angular_damp = 0.0
@@ -88,7 +92,7 @@ func _ready() -> void:
 	wheel.contact_monitor = true
 	wheel.body_entered.connect(_on_wheel_body_entered)
 	_rig.sync_pose()
-	$Wheel/Rider/Visual.team_color = team_color
+	$Wheel/Pelvis/UpperBody/Visual.team_color = team_color
 	if GameManager.is_play_mode():
 		set_weapon_type(WeaponDefs.Type.MINIGUN)
 	elif GameManager.current_mode == GameManager.Mode.GUN_GAME:
@@ -104,10 +108,14 @@ func _setup_input() -> void:
 		_lean_back_action = "pedal_left"
 		_lean_forward_action = "pedal_right"
 		_shoot_action = "shoot"
+		_aim_left_action = "aim_left"
+		_aim_right_action = "aim_right"
 	else:
 		_lean_back_action = "p2_pedal_left"
 		_lean_forward_action = "p2_pedal_right"
 		_shoot_action = "p2_shoot"
+		_aim_left_action = "p2_aim_left"
+		_aim_right_action = "p2_aim_right"
 
 func get_player_id() -> int:
 	return player_id
@@ -115,6 +123,10 @@ func get_player_id() -> int:
 
 func get_facing() -> float:
 	return _rig.facing if _rig else 1.0
+
+
+func get_aim_facing() -> float:
+	return _rig.aim_facing if _rig else 1.0
 
 func get_faction() -> Faction.Id:
 	return Faction.Id.PLAYER
@@ -146,7 +158,7 @@ func _physics_process(delta: float) -> void:
 	_time_since_hit += delta
 
 	global_position = wheel.global_position
-	pickup_area.global_position = rider.global_position
+	pickup_area.global_position = pelvis.global_position + Vector2(0, -20)
 
 	if state == State.RIDING and health < MAX_HEALTH and _time_since_hit >= REGEN_DELAY:
 		health = mini(MAX_HEALTH, health + int(REGEN_RATE * delta))
@@ -193,7 +205,8 @@ func _apply_environment_forces(delta: float) -> void:
 
 func _process_riding(delta: float) -> void:
 	_current_lean = _read_lean()
-	_update_facing()
+	_update_move_facing()
+	_update_aim_facing()
 	wheel.lock_rotation = true
 
 	if Input.is_action_pressed(_shoot_action):
@@ -405,34 +418,20 @@ func _recoil_multiplier(recoil_dir: Vector2) -> float:
 		return lerpf(1.0, 1.55, absf(brace))
 	return 1.0
 
-func _update_facing() -> void:
+func _update_move_facing() -> void:
 	if _current_lean != 0.0:
 		_rig.set_facing(_current_lean)
 	elif absf(wheel.linear_velocity.x) > 6.0:
 		_rig.set_facing(wheel.linear_velocity.x)
-	elif Input.is_action_pressed(_shoot_action):
-		var target := _nearest_aim_target()
-		if target != null:
-			var dx := target.global_position.x - global_position.x
-			if absf(dx) > 8.0:
-				_rig.set_facing(dx)
 
 
-func _nearest_aim_target() -> Node2D:
-	var groups := ["enemies"] if GameManager.is_play_mode() else ["players"]
-	var best: Node2D = null
-	var best_dist := INF
-	for group_name in groups:
-		for node in get_tree().get_nodes_in_group(group_name):
-			if node == self or not is_instance_valid(node) or node is not Node2D:
-				continue
-			if node.has_method("get_player_id") and node.get_player_id() == player_id:
-				continue
-			var dist := global_position.distance_squared_to(node.global_position)
-			if dist < best_dist:
-				best_dist = dist
-				best = node
-	return best
+func _update_aim_facing() -> void:
+	if Input.is_action_pressed(_aim_left_action):
+		_rig.set_aim_facing(-1.0)
+	elif Input.is_action_pressed(_aim_right_action):
+		_rig.set_aim_facing(1.0)
+	else:
+		_rig.set_aim_facing(_rig.facing)
 
 
 func take_damage(amount: int, from: Node2D = null) -> void:
@@ -471,6 +470,7 @@ func _finish_respawn() -> void:
 	_last_vel_x = 0.0
 	_rig.reset_wheel_spin()
 	_rig.facing = -1.0 if player_id == 2 else 1.0
+	_rig.aim_facing = _rig.facing
 	_rig.sync_pose()
 	if is_instance_valid(leg_back) and leg_back.has_method("reset_pose"):
 		leg_back.reset_pose()
@@ -506,7 +506,7 @@ func apply_harpoon_recoil_pull(hit_pos: Vector2) -> void:
 	wheel.apply_central_impulse(dir * 200.0)
 
 func _draw() -> void:
-	if not is_instance_valid(rider) or _rig == null:
+	if not is_instance_valid(pelvis) or _rig == null:
 		return
 	var bar_pos := _rig.rider_bar_anchor(self)
 	Shapes.rounded_rect(self, Rect2(bar_pos, Vector2(56, 7)), 3.0, Color(0.08, 0.08, 0.08, 0.85))

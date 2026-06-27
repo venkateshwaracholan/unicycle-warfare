@@ -1,7 +1,6 @@
 class_name UnicycleRig
 
-## Shared unicycle skeleton — pose, facing, wheel spin, aim.
-## Balance physics stay in wheel space; facing is visual + aim only.
+## Lower body (pelvis + legs) = movement flip. Upper body = aim flip (sibling, not under MoveFacing).
 
 const WHEEL_RADIUS := 22.0
 const WHEEL_CIRCUMFERENCE := TAU * WHEEL_RADIUS
@@ -14,13 +13,26 @@ const RIDER_GROUND_PROBES := [Vector2(0, 14), Vector2(-10, 14), Vector2(10, 14)]
 var wheel: Node2D
 var wheel_visual: Node2D
 var pedals: Node2D
-var rider: Node2D
-var rider_visual: Node2D
+var pelvis: Node2D
+var pelvis_facing: Node2D
+var pelvis_visual: Node2D
+var upper_body: Node2D
+var upper_visual: Node2D
+var leg_back_pivot: Node2D
+var leg_back_facing: Node2D
 var leg_back: Node2D
 var leg_front: Node2D
 var muzzle: Marker2D
 
+var rider: Node2D:
+	get:
+		return pelvis
+var rider_visual: Node2D:
+	get:
+		return upper_visual
+
 var facing := 1.0
+var aim_facing := 1.0
 var balance_angle := 0.0
 var balance_angular_vel := 0.0
 var wheel_spin := 0.0
@@ -31,13 +43,42 @@ static func bind(wheel_node: Node2D) -> UnicycleRig:
 	rig.wheel = wheel_node
 	rig.wheel_visual = wheel_node.get_node_or_null("Visual") as Node2D
 	rig.pedals = wheel_node.get_node_or_null("Pedals") as Node2D
-	rig.rider = wheel_node.get_node_or_null("Rider") as Node2D
-	if rig.rider:
-		rig.rider_visual = rig.rider.get_node_or_null("Visual") as Node2D
-		rig.leg_front = rig.rider.get_node_or_null("LegFront") as Node2D
-		rig.muzzle = rig.rider.get_node_or_null("Muzzle") as Marker2D
-	rig.leg_back = wheel_node.get_node_or_null("LegBack") as Node2D
+	rig.pelvis = wheel_node.get_node_or_null("Pelvis") as Node2D
+	if rig.pelvis == null:
+		rig.pelvis = wheel_node.get_node_or_null("Rider") as Node2D
+	rig._bind_pelvis_chain()
+	rig._bind_leg_back_chain(wheel_node)
 	return rig
+
+
+func _bind_pelvis_chain() -> void:
+	if pelvis == null:
+		return
+	pelvis_facing = pelvis.get_node_or_null("MoveFacing") as Node2D
+	var body_root: Node = pelvis_facing if pelvis_facing else pelvis
+	pelvis_visual = body_root.get_node_or_null("PelvisVisual") as Node2D
+	leg_front = body_root.get_node_or_null("LegFront") as Node2D
+	upper_body = pelvis.get_node_or_null("UpperBody") as Node2D
+	if upper_body == null:
+		upper_body = body_root.get_node_or_null("UpperBody") as Node2D
+	if upper_body:
+		upper_visual = upper_body.get_node_or_null("Visual") as Node2D
+		muzzle = upper_body.get_node_or_null("Muzzle") as Marker2D
+	else:
+		upper_visual = body_root.get_node_or_null("Visual") as Node2D
+		muzzle = pelvis.get_node_or_null("Muzzle") as Marker2D
+
+
+func _bind_leg_back_chain(wheel_node: Node2D) -> void:
+	leg_back_pivot = wheel_node.get_node_or_null("LegBackPivot") as Node2D
+	if leg_back_pivot:
+		leg_back_facing = leg_back_pivot.get_node_or_null("MoveFacing") as Node2D
+		if leg_back_facing:
+			leg_back = leg_back_facing.get_node_or_null("LegBack") as Node2D
+		else:
+			leg_back = leg_back_pivot.get_node_or_null("LegBack") as Node2D
+	else:
+		leg_back = wheel_node.get_node_or_null("LegBack") as Node2D
 
 
 func set_facing(direction: float) -> void:
@@ -47,16 +88,60 @@ func set_facing(direction: float) -> void:
 	sync_pose()
 
 
-func sync_pose() -> void:
-	if not is_instance_valid(rider):
+func set_aim_facing(direction: float) -> void:
+	if absf(direction) < 0.01:
 		return
-	rider.position = WHEEL_HUB + RIDER_OFFSET_FROM_HUB.rotated(balance_angle)
-	rider.scale.x = facing
-	rider.rotation = balance_angle
-	if is_instance_valid(leg_back):
-		leg_back.position = rider.position
-		leg_back.scale.x = facing
+	aim_facing = signf(direction)
+	sync_pose()
+
+
+func sync_pose() -> void:
+	if not is_instance_valid(pelvis):
+		return
+
+	var pelvis_pos := WHEEL_HUB + RIDER_OFFSET_FROM_HUB.rotated(balance_angle)
+	pelvis.position = pelvis_pos
+	pelvis.rotation = balance_angle
+	pelvis.scale = Vector2.ONE
+
+	_apply_move_facing(pelvis_facing)
+
+	if is_instance_valid(leg_back_pivot):
+		leg_back_pivot.position = pelvis_pos
+		leg_back_pivot.rotation = balance_angle
+		leg_back_pivot.scale = Vector2.ONE
+		_apply_move_facing(leg_back_facing)
+	elif is_instance_valid(leg_back):
+		leg_back.position = pelvis_pos
 		leg_back.rotation = balance_angle
+		leg_back.scale = Vector2.ONE
+		_apply_move_facing(leg_back)
+
+	if is_instance_valid(upper_body):
+		upper_body.position = Vector2.ZERO
+		upper_body.rotation = 0.0
+		upper_body.scale = Vector2(aim_facing, 1.0)
+
+	_sync_visuals()
+
+
+func _apply_move_facing(node: Node2D) -> void:
+	if not is_instance_valid(node):
+		return
+	node.scale = Vector2(facing, 1.0)
+	node.rotation = 0.0
+	node.position = Vector2.ZERO
+
+
+func _sync_visuals() -> void:
+	if is_instance_valid(pelvis_visual):
+		pelvis_visual.queue_redraw()
+	if is_instance_valid(upper_visual):
+		upper_visual.queue_redraw()
+	if is_instance_valid(leg_back):
+		leg_back.queue_redraw()
+	if is_instance_valid(leg_front):
+		leg_front.queue_redraw()
 
 
 func set_balance(angle: float, angular_vel: float = -999.0) -> void:
@@ -104,14 +189,14 @@ func is_resting_on_ground_lean() -> bool:
 
 
 func aim_direction(aim_offset_deg: float = -8.0) -> Vector2:
-	return Vector2(facing, 0.0).rotated(balance_angle + deg_to_rad(aim_offset_deg))
+	return Vector2(aim_facing, 0.0).rotated(balance_angle + deg_to_rad(aim_offset_deg))
 
 
 func get_muzzle_global() -> Vector2:
 	if is_instance_valid(muzzle):
 		return muzzle.global_position
-	if is_instance_valid(rider):
-		return rider.global_position + Vector2(26.0 * facing, -22.0)
+	if is_instance_valid(upper_body):
+		return upper_body.to_global(Vector2(26, -22))
 	return wheel.global_position if wheel else Vector2.ZERO
 
 
@@ -149,18 +234,14 @@ func reset_wheel_spin() -> void:
 func redraw() -> void:
 	if is_instance_valid(pedals):
 		pedals.queue_redraw()
-	if is_instance_valid(rider_visual):
-		rider_visual.queue_redraw()
-	if is_instance_valid(leg_back):
-		leg_back.queue_redraw()
-	if is_instance_valid(leg_front):
-		leg_front.queue_redraw()
+	_sync_visuals()
 
 
 func rider_bar_anchor(root: Node2D) -> Vector2:
-	if not is_instance_valid(rider) or root == null:
+	var anchor: Node2D = upper_body if is_instance_valid(upper_body) else pelvis
+	if not is_instance_valid(anchor) or root == null:
 		return Vector2.ZERO
-	return rider.global_position - root.global_position + Vector2(-28, -72)
+	return anchor.global_position - root.global_position + Vector2(-28, -72)
 
 
 func wheel_contact_local_y() -> float:

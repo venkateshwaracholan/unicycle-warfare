@@ -2,6 +2,7 @@ extends Node2D
 
 @export var color := Color.WHITE
 @export var is_rider := false
+@export var is_pelvis := false
 @export var team_color := Color.RED
 
 const SHORTS_COLOR := Color(0.45, 0.28, 0.16)
@@ -10,10 +11,15 @@ const BLADE_SPOKE_COUNT := 3
 const Shapes := preload("res://scripts/draw_shapes.gd")
 
 func _draw() -> void:
-	if is_rider:
-		_draw_rider()
+	if is_pelvis:
+		_draw_pelvis()
+	elif is_rider:
+		_draw_upper_body()
 	else:
 		_draw_wheel()
+
+func _draw_pelvis() -> void:
+	Shapes.rounded_rect(self, Rect2(-10, 0, 20, 8), 3.0, SHORTS_COLOR)
 
 func _draw_wheel() -> void:
 	var tire_r := 22.0
@@ -91,23 +97,25 @@ func _draw_blade_spokes(rim_attach: float) -> void:
 		draw_circle(to, 1.55, rim_boss)
 		draw_arc(to, 1.35, 0, TAU, 12, rim_ring, 0.8)
 
-func _draw_rider() -> void:
+func _draw_upper_body() -> void:
 	var hub_local := _hub_local()
 	Shapes.rounded_rect(self, Rect2(-12, -30, 24, 38), 4.0, team_color)
-	Shapes.rounded_rect(self, Rect2(-10, 0, 20, 8), 3.0, SHORTS_COLOR)
 	Shapes.rounded_rect(self, Rect2(-10, -48, 20, 18), 4.0, Color(0.92, 0.78, 0.45))
 	Shapes.rounded_rect(self, Rect2(-14, -54, 28, 8), 2.0, Color(0.15, 0.12, 0.1))
 	Shapes.rounded_rect(self, Rect2(-8, -60, 16, 8), 3.0, Color(0.15, 0.12, 0.1))
 	_draw_seat_post(hub_local)
+	# Gun always points +X in upper-body space; UpperBody scale.x = aim_facing.
 	Shapes.rounded_rect(self, Rect2(8, -22, 18, 6), 2.0, Color(0.35, 0.35, 0.38))
 
 func _hub_local() -> Vector2:
-	var wheel := get_parent().get_parent()
-	if not wheel:
-		return Vector2(0, 38)
-	var pedals := wheel.get_node_or_null("Pedals")
-	if pedals:
-		return to_local(pedals.get_hub_global())
+	var node: Node = get_parent()
+	while node != null:
+		if node is Node2D and (node as Node2D).has_node("Pedals"):
+			var pedals := (node as Node2D).get_node_or_null("Pedals")
+			if pedals and pedals.has_method("get_hub_global"):
+				return to_local(pedals.get_hub_global())
+			break
+		node = node.get_parent()
 	return Vector2(0, 38)
 
 func _draw_seat_post(hub_local: Vector2) -> void:

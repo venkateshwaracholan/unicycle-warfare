@@ -52,8 +52,8 @@ func _refresh_fire_rate_mult() -> void:
 
 func _configure_visuals() -> void:
 	var color: Color = _data.get("color", Color(0.85, 0.3, 0.3))
-	if _rig.rider_visual:
-		_rig.rider_visual.team_color = color
+	if _rig.upper_visual:
+		_rig.upper_visual.team_color = color
 	var body_scale := 1.35 if is_boss else 1.0
 	wheel.scale = Vector2(body_scale, body_scale)
 
@@ -120,14 +120,18 @@ func _physics_process(delta: float) -> void:
 		var to_target := target.global_position - global_position
 		var dist := to_target.length()
 		var dir := to_target / maxf(dist, 0.001)
-		_rig.set_facing(dir.x)
 		_move_for_role(dir, dist, delta)
+		vx = (global_position.x - _last_x) / maxf(delta, 0.001)
+		_rig.set_aim_facing(dir.x)
+		if absf(vx) > 4.0:
+			_rig.set_facing(vx)
+		elif absf(dir.x) > 0.05:
+			_rig.set_facing(dir.x)
 		if _should_fire(dist):
 			var aim := dir
 			if get_weapon_type() == WeaponDefs.Type.ROCKET and dist < float(_data.get("preferred_min", 120.0)):
 				aim = Vector2(0, 1)
 			_weapon_user.try_attack(aim)
-		vx = (global_position.x - _last_x) / maxf(delta, 0.001)
 
 	var speed: float = _data.get("speed", 30.0)
 	_last_x = _rig.sync_wheel_spin(
@@ -224,7 +228,7 @@ func _nearest_player(include_fallen: bool) -> Node2D:
 
 
 func _draw() -> void:
-	if _rig == null or not is_instance_valid(_rig.rider):
+	if _rig == null or not is_instance_valid(_rig.pelvis):
 		return
 	var bar_pos := _rig.rider_bar_anchor(self)
 	if is_boss:

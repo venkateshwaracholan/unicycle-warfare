@@ -93,8 +93,8 @@ func _session_title() -> String:
 
 func _session_message() -> String:
 	if GameManager.is_play_mode():
-		return "Fall = drop weapon · grab it or use pistol · Menu (top-right)"
-	return "Start with minigun · weapons drop from the sky · Menu (top-right)"
+		return "Q/W pedal · A/D aim · E shoot · fall drops weapon · Menu (top-right)"
+	return "Q/W pedal · A/D aim · E shoot · weapons from sky · Tab=mode · Menu (top-right)"
 
 
 func set_mission_message(text: String) -> void:
