@@ -14,15 +14,28 @@ func _draw() -> void:
 		_draw_wheel()
 
 func _draw_wheel() -> void:
-	var r := 22.0
-	var inner := r - 9.0
-	# Rim only — keep the center empty so the back leg shows through when layered behind.
-	draw_arc(Vector2.ZERO, r, 0, TAU, 48, Color(0.12, 0.12, 0.14), 5.0)
-	draw_arc(Vector2.ZERO, inner, 0, TAU, 48, Color(0.38, 0.38, 0.42), 2.0)
+	var tire_r := 22.0
+	var tire_w := 5.0
+	var tire_inner := tire_r - tire_w * 0.5
+	# Spokes first, then tire band covers the outer spoke ends at the rim.
+	_draw_spokes(tire_inner)
+	draw_arc(Vector2.ZERO, tire_r, 0, TAU, 48, Color(0.12, 0.12, 0.14), tire_w)
+	draw_circle(Vector2.ZERO, 7, Color(0.32, 0.32, 0.36))
 	draw_circle(Vector2.ZERO, 5, Color(0.45, 0.45, 0.5))
-	for i in 4:
-		var a := float(i) * PI * 0.5
-		draw_line(Vector2.ZERO, Vector2(cos(a), sin(a)) * inner, Color(0.35, 0.35, 0.38), 2.0)
+
+func _draw_spokes(tire_inner: float) -> void:
+	# Six spokes from hub flange to the inner edge of the tire rubber.
+	const SPOKE_COUNT := 6
+	const HUB_RADIUS := 6.0
+	var dark := Color(0.38, 0.38, 0.42)
+	var light := Color(0.58, 0.58, 0.62)
+	for i in SPOKE_COUNT:
+		var angle := float(i) / float(SPOKE_COUNT) * TAU - PI * 0.5
+		var dir := Vector2(cos(angle), sin(angle))
+		var from := dir * HUB_RADIUS
+		var to := dir * tire_inner
+		draw_line(from, to, dark, 3.0)
+		draw_line(from, to, light, 1.5)
 
 func _draw_rider() -> void:
 	var hub_local := _hub_local()
