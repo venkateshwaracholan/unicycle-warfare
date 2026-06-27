@@ -23,6 +23,16 @@ func set_weapon_type(weapon: WeaponDefs.Type) -> void:
 	weapon_type = weapon
 	if owner != null and "weapon_type" in owner:
 		owner.weapon_type = weapon
+	_notify_owner_weapon_changed()
+
+
+func _notify_owner_weapon_changed() -> void:
+	if owner == null:
+		return
+	if owner.has_method("_emit_weapon_changed"):
+		owner.call("_emit_weapon_changed")
+	elif owner.has_method("_sync_weapon_visual"):
+		owner.call("_sync_weapon_visual")
 
 func get_muzzle_global_position() -> Vector2:
 	if owner != null and owner.has_method("get_weapon_muzzle_global"):

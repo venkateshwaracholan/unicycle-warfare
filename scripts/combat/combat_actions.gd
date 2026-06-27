@@ -166,10 +166,14 @@ static func try_pickup_nearby(user: WeaponUser, radius: float = PICKUP_RADIUS) -
 			best = loot
 	if best == null:
 		return false
-	user.set_weapon_type(best.get_weapon_type())
+	var loot_weapon: WeaponDefs.Type = best.get_weapon_type()
 	best.queue_free()
+	if user.owner.has_method("set_weapon_type"):
+		user.owner.set_weapon_type(loot_weapon)
+	else:
+		user.set_weapon_type(loot_weapon)
 	if user.owner.has_method("on_weapon_pickup"):
-		user.owner.on_weapon_pickup(user.get_weapon_type())
+		user.owner.on_weapon_pickup(loot_weapon)
 	return true
 
 

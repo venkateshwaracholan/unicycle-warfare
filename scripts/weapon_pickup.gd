@@ -55,24 +55,4 @@ func get_drop_age() -> float:
 	return Time.get_ticks_msec() / 1000.0 - _spawn_time
 
 func _draw() -> void:
-	var data := WeaponDefs.get_data(weapon_type)
-	var gun_color: Color = data["color"]
-	var cat: WeaponDefs.Category = data["category"]
-
-	match cat:
-		WeaponDefs.Category.MELEE:
-			if weapon_type == WeaponDefs.Type.KATANA:
-				draw_line(Vector2(-20, 4), Vector2(22, -8), Color(0.85, 0.88, 0.95), 4.0)
-				draw_line(Vector2(-20, 4), Vector2(-24, 8), Color(0.35, 0.2, 0.1), 3.0)
-			else:
-				draw_rect(Rect2(-8, -16, 16, 28), gun_color)
-				draw_rect(Rect2(-14, 8, 28, 8), gun_color.darkened(0.15))
-		WeaponDefs.Category.THROWABLE:
-			draw_circle(Vector2(0, 0), 8, gun_color)
-			draw_rect(Rect2(-2, -12, 4, 6), Color(0.3, 0.3, 0.3))
-		_:
-			draw_rect(Rect2(-14, -6, 28, 10), gun_color)
-			draw_rect(Rect2(10, -4, 18, 6), gun_color.darkened(0.2))
-			draw_circle(Vector2(-8, 2), 5, Color(0.2, 0.2, 0.25))
-
-	draw_arc(Vector2.ZERO, 24, 0, TAU, 24, Color(1, 1, 0.5, 0.25), 2.0)
+	WeaponVisual.draw_ground(self, weapon_type)

@@ -43,10 +43,10 @@ func _ready() -> void:
 
 
 func _refresh_fire_rate_mult() -> void:
-	var base_mult := float(_data.get("fire_rate_mult", 2.2))
+	var base_mult := float(_data.get("fire_rate_mult", 3.8))
 	var weapon_data := WeaponDefs.get_data(get_weapon_type())
 	var weapon_interval: float = float(weapon_data.get("fire_rate", 0.5))
-	var pickup_slowdown := clampf(0.28 / maxf(weapon_interval, 0.04), 1.0, 8.0)
+	var pickup_slowdown := clampf(0.40 / maxf(weapon_interval, 0.04), 1.0, 10.0)
 	_weapon_user.fire_rate_multiplier = base_mult * pickup_slowdown
 
 
@@ -56,6 +56,16 @@ func _configure_visuals() -> void:
 		_rig.upper_visual.team_color = color
 	var body_scale := 1.35 if is_boss else 1.0
 	wheel.scale = Vector2(body_scale, body_scale)
+	_sync_weapon_visual()
+
+
+func _sync_weapon_visual() -> void:
+	if _rig.upper_visual and _rig.upper_visual.has_method("set_weapon"):
+		_rig.upper_visual.set_weapon(get_weapon_type())
+	if is_instance_valid(_rig.muzzle):
+		_rig.muzzle.position = WeaponVisual.get_muzzle_local(get_weapon_type())
+	if _rig:
+		_rig.redraw()
 
 
 func _resolve_ground_y() -> float:
@@ -76,7 +86,7 @@ func get_weapon_type() -> WeaponDefs.Type:
 func set_weapon_type(weapon: WeaponDefs.Type) -> void:
 	_weapon_user.set_weapon_type(weapon)
 	_refresh_fire_rate_mult()
-	queue_redraw()
+	_sync_weapon_visual()
 
 
 func get_weapon_muzzle_global() -> Vector2:
@@ -85,7 +95,7 @@ func get_weapon_muzzle_global() -> Vector2:
 
 func on_weapon_pickup(_weapon: WeaponDefs.Type) -> void:
 	_refresh_fire_rate_mult()
-	queue_redraw()
+	_sync_weapon_visual()
 
 
 func take_damage(amount: int, from: Node2D = null) -> void:

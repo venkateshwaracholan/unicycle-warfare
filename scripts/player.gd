@@ -132,11 +132,10 @@ func get_faction() -> Faction.Id:
 	return Faction.Id.PLAYER
 
 func get_weapon_type() -> WeaponDefs.Type:
-	return weapon_type
+	return _weapon_user.get_weapon_type() if _weapon_user else weapon_type
 
 func set_weapon_type(weapon: WeaponDefs.Type) -> void:
 	_weapon_user.set_weapon_type(weapon)
-	_emit_weapon_changed()
 
 func get_weapon_muzzle_global() -> Vector2:
 	return _rig.get_muzzle_global() if _rig else muzzle.global_position
@@ -148,7 +147,7 @@ func can_pickup_loot(loot: Node) -> bool:
 	return true
 
 func on_weapon_pickup(_weapon: WeaponDefs.Type) -> void:
-	pass
+	_sync_weapon_visual()
 
 func _wheel_spawn_pos() -> Vector2:
 	return Vector2(spawn_position.x, _ground_y)
@@ -370,7 +369,18 @@ func _try_pickup_weapon() -> bool:
 
 
 func _emit_weapon_changed() -> void:
+	weapon_type = _weapon_user.get_weapon_type()
 	weapon_changed.emit(weapon_type)
+	_sync_weapon_visual()
+
+
+func _sync_weapon_visual() -> void:
+	if rider_visual and rider_visual.has_method("set_weapon"):
+		rider_visual.set_weapon(weapon_type)
+	if is_instance_valid(muzzle):
+		muzzle.position = WeaponVisual.get_muzzle_local(weapon_type)
+	if _rig:
+		_rig.redraw()
 
 func _try_attack() -> void:
 	var aim_dir := _rig.aim_direction()

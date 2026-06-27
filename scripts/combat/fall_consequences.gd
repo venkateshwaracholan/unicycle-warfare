@@ -8,8 +8,8 @@ const DROP_COOLDOWN := 1.8
 static func drop_weapon_from_player(player: Node2D, world: Node) -> void:
 	if not player.has_method("get_player_id"):
 		return
-	var current: WeaponDefs.Type = player.get_weapon_type() if player.has_method("get_weapon_type") else player.weapon_type
-	if current == WeaponDefs.Type.NONE or current == BACKUP_WEAPON:
+	var current := _read_weapon(player)
+	if _is_non_droppable(current):
 		return
 
 	var muzzle: Node2D = player.get_node_or_null("Wheel/Pelvis/UpperBody/Muzzle")
@@ -28,6 +28,18 @@ static func drop_weapon_from_player(player: Node2D, world: Node) -> void:
 		player.weapon_type = BACKUP_WEAPON
 
 
+static func _read_weapon(player: Node2D) -> WeaponDefs.Type:
+	if player.has_method("get_weapon_type"):
+		return player.get_weapon_type()
+	if "weapon_type" in player:
+		return player.weapon_type
+	return WeaponDefs.Type.NONE
+
+
+static func _is_non_droppable(weapon: WeaponDefs.Type) -> bool:
+	return weapon == WeaponDefs.Type.NONE or weapon == BACKUP_WEAPON
+
+
 static func spawn_weapon_pickup(
 	world: Node,
 	global_pos: Vector2,
@@ -35,6 +47,9 @@ static func spawn_weapon_pickup(
 	velocity: Vector2,
 	dropped_by: int = 0
 ) -> Node:
+	# Player drops never spawn the default sidearm — you already respawn with it.
+	if dropped_by > 0 and _is_non_droppable(weapon):
+		return null
 	var pickup := WEAPON_PICKUP_SCENE.instantiate()
 	pickup.add_to_group("weapon_loot")
 	pickup.weapon_type = weapon

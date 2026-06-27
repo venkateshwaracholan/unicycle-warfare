@@ -5,11 +5,14 @@ extends Node2D
 @export var is_pelvis := false
 @export var team_color := Color.RED
 
+var weapon_type: WeaponDefs.Type = WeaponDefs.Type.NONE
+
 const SHORTS_COLOR := Color(0.45, 0.28, 0.16)
 const SKIN_COLOR := Color(0.92, 0.78, 0.45)
 const BEARD_COLOR := Color(0.40, 0.24, 0.12)
 const BEARD_DARK := Color(0.28, 0.16, 0.08)
 const HAT_COLOR := Color(0.15, 0.12, 0.1)
+const WeaponVisual := preload("res://scripts/weapon_visual.gd")
 const WIRE_SPOKE_COUNT := 20
 const BLADE_SPOKE_COUNT := 3
 const Shapes := preload("res://scripts/draw_shapes.gd")
@@ -101,6 +104,11 @@ func _draw_blade_spokes(rim_attach: float) -> void:
 		draw_circle(to, 1.55, rim_boss)
 		draw_arc(to, 1.35, 0, TAU, 12, rim_ring, 0.8)
 
+func set_weapon(weapon: WeaponDefs.Type) -> void:
+	weapon_type = weapon
+	queue_redraw()
+
+
 func _draw_upper_body() -> void:
 	var hub_local := _hub_local()
 	Shapes.rounded_rect(self, Rect2(-12, -30, 24, 38), 4.0, team_color)
@@ -108,8 +116,7 @@ func _draw_upper_body() -> void:
 	_draw_cowboy_face()
 	_draw_cowboy_hat()
 	_draw_seat_post(hub_local)
-	# Gun always points +X in upper-body space; UpperBody scale.x = aim_facing.
-	Shapes.rounded_rect(self, Rect2(8, -22, 18, 6), 2.0, Color(0.35, 0.35, 0.38))
+	_draw_arms_and_weapon()
 
 
 func _draw_cowboy_hat() -> void:
@@ -181,6 +188,17 @@ func _draw_beard() -> void:
 		chin + Vector2(-2.5, -1.0),
 	])
 	draw_colored_polygon(fork, BEARD_COLOR)
+
+
+func _draw_arms_and_weapon() -> void:
+	var hands := WeaponVisual.get_hand_positions(weapon_type)
+	if weapon_type != WeaponDefs.Type.NONE:
+		WeaponVisual.draw_hand(self, hands[0], SKIN_COLOR)
+		WeaponVisual.draw_held(self, weapon_type)
+		WeaponVisual.draw_hand(self, hands[1], SKIN_COLOR)
+	else:
+		for i in hands.size():
+			WeaponVisual.draw_hand(self, hands[i], SKIN_COLOR)
 
 func _hub_local() -> Vector2:
 	var node: Node = get_parent()
