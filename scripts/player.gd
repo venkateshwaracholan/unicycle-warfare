@@ -362,7 +362,9 @@ func _try_pickup_weapon() -> bool:
 			continue
 		if not can_pickup_loot(area):
 			continue
-		set_weapon_type(area.get_weapon_type())
+		var loot_weapon: WeaponDefs.Type = area.get_weapon_type()
+		set_weapon_type(loot_weapon)
+		on_weapon_pickup(loot_weapon)
 		area.queue_free()
 		return true
 	return _weapon_user.try_pickup_nearby()
@@ -372,6 +374,9 @@ func _emit_weapon_changed() -> void:
 	weapon_type = _weapon_user.get_weapon_type()
 	weapon_changed.emit(weapon_type)
 	_sync_weapon_visual()
+	# Re-armed while still grounded — allow another fall-drop cycle.
+	if weapon_type != WeaponDefs.Type.PISTOL and weapon_type != WeaponDefs.Type.NONE:
+		_is_fallen = false
 
 
 func _sync_weapon_visual() -> void:
