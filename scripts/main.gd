@@ -18,6 +18,7 @@ const MAX_SKY_WEAPONS := 7
 @onready var score_label: Label = $HUD/Score
 @onready var message_label: Label = $HUD/Message
 @onready var mode_label: Label = $HUD/ModeLabel
+@onready var title_label: Label = $HUD/Title
 
 var _players: Array = []
 var _weapon_drop_timer := 1.2
@@ -26,11 +27,43 @@ func _ready() -> void:
 	GameManager.score_changed.connect(_on_score_changed)
 	GameManager.match_won.connect(_on_match_won)
 	GameManager.mode_changed.connect(_on_mode_changed)
+	_apply_session()
 	_rebuild_arena()
 	_clear_weapons()
 	_spawn_players()
 	_update_hud()
-	message_label.text = "Start with minigun · weapons drop from the sky · ride over them to swap."
+	title_label.text = _session_title()
+	message_label.text = _session_message()
+	_setup_menu_button()
+
+func _setup_menu_button() -> void:
+	var btn := Button.new()
+	btn.name = "MenuButton"
+	btn.text = "Menu"
+	btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	btn.offset_left = -88.0
+	btn.offset_top = 8.0
+	btn.offset_right = -8.0
+	btn.offset_bottom = 36.0
+	btn.add_theme_font_size_override("font_size", 14)
+	btn.pressed.connect(_on_menu_button_pressed)
+	hud.add_child(btn)
+
+func _on_menu_button_pressed() -> void:
+	GameManager.return_to_menu()
+
+func _apply_session() -> void:
+	if GameManager.session_type == GameManager.SessionType.NONE:
+		GameManager.start_play()
+	arena.map_id = GameManager.session_map
+	arena._configure_map()
+	GameManager.set_mode(GameManager.session_mode)
+
+func _session_title() -> String:
+	return "UNICYCLE WARFARE"
+
+func _session_message() -> String:
+	return "Start with minigun · weapons drop from the sky · Menu (top-right) to quit"
 
 func _physics_process(delta: float) -> void:
 	_weapon_drop_timer -= delta
@@ -39,11 +72,20 @@ func _physics_process(delta: float) -> void:
 		_weapon_drop_timer = randf_range(WEAPON_DROP_MIN, WEAPON_DROP_MAX)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		GameManager.return_to_menu()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("restart_match"):
+		get_tree().reload_current_scene()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("cycle_mode"):
 		GameManager.cycle_mode()
 		_on_mode_changed(GameManager.current_mode)
 	if event.is_action_pressed("cycle_map"):
 		arena.cycle_map()
+		GameManager.session_map = arena.map_id
 		_rebuild_arena()
 		_respawn_all()
 
@@ -134,8 +176,11 @@ func _on_mode_changed(_mode: GameManager.Mode) -> void:
 	_update_hud()
 
 func _on_match_won(winner_id: int, _mode: GameManager.Mode) -> void:
-	message_label.text = "PLAYER %d WINS! Tab=mode  M=map  F5=restart" % winner_id
+message_label.text = "PLAYER %d WINS!  Menu (top-right)  F5=restart" % winner_id
 
 func _update_hud() -> void:
-	score_label.text = "Score  P1: %d   P2: %d   (first to %d)" % [GameManager.scores[1], GameManager.scores[2], GameManager.WIN_SCORE]
+	title_label.text = _session_title()
+	score_label.text = "Score  P1: %d   P2: %d   (first to %d)" % [
+		GameManager.scores[1], GameManager.scores[2], GameManager.WIN_SCORE
+	]
 	mode_label.text = "%s — %s" % [GameManager.mode_name(), arena.get_map_name()]

@@ -1,6 +1,6 @@
-[gd_scene load_steps=7 format=3 uid="uid://bmain001"]
+[gd_scene format=3 uid="uid://ctestarena001"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/test_arena.gd" id="1_test"]
 [ext_resource type="Script" path="res://scripts/arena.gd" id="2_arena"]
 [ext_resource type="Script" path="res://scripts/hill_zone.gd" id="3_hill"]
 
@@ -13,8 +13,8 @@ size = Vector2(20, 200)
 [sub_resource type="CircleShape2D" id="CircleShape2D_hill"]
 radius = 80.0
 
-[node name="Main" type="Node2D"]
-script = ExtResource("1_main")
+[node name="TestArena" type="Node2D"]
+script = ExtResource("1_test")
 
 [node name="Arena" type="Node2D" parent="."]
 script = ExtResource("2_arena")
@@ -64,7 +64,7 @@ offset_right = 560.0
 offset_bottom = 40.0
 theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
 theme_override_font_sizes/font_size = 22
-text = "UNICYCLE WARFARE"
+text = "ARENA"
 
 [node name="ModeLabel" type="Label" parent="HUD"]
 offset_left = 16.0
@@ -73,7 +73,7 @@ offset_right = 500.0
 offset_bottom = 56.0
 theme_override_colors/font_color = Color(0.7, 0.85, 1, 1)
 theme_override_font_sizes/font_size = 14
-text = "Deathmatch — Bridge"
+text = "Deathmatch — Flat Track"
 
 [node name="Message" type="Label" parent="HUD"]
 offset_left = 16.0
@@ -138,7 +138,6 @@ offset_bottom = -16.0
 theme_override_colors/font_color = Color(0.4, 0.65, 0.95, 1)
 theme_override_font_sizes/font_size = 13
 text = "P2 — I/O balance & move  P shoot
-Lean INTO recoil · ride over guns
 Tab mode  M map  Menu (top-right)"
 horizontal_alignment = 2
 
@@ -152,5 +151,5 @@ offset_right = 340.0
 offset_bottom = 712.0
 theme_override_colors/font_color = Color(1, 0.75, 0.35, 1)
 theme_override_font_sizes/font_size = 12
-text = "Unicycle balance · Q/W move · E shoot · repeat"
+text = "PvP arena · Menu (top-right) · F5 restart"
 horizontal_alignment = 1

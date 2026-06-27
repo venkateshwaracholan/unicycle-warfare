@@ -1,11 +1,18 @@
 extends Node
 
 enum Mode { DEATHMATCH, KING_OF_HILL, GUN_GAME }
+enum SessionType { NONE, PLAY, ARENA }
 
 const WIN_SCORE := 10
 const KOTH_TICK := 0.5
+const MENU_SCENE := "res://scenes/menu.tscn"
+const MAIN_SCENE := "res://scenes/main.tscn"
+const ARENA_SCENE := "res://scenes/test_arena.tscn"
 
 var current_mode: Mode = Mode.DEATHMATCH
+var session_type: SessionType = SessionType.NONE
+var session_mode: Mode = Mode.DEATHMATCH
+var session_map: Arena.MapId = Arena.MapId.FLAT
 var scores: Dictionary = {1: 0, 2: 0}
 var gun_game_tier: Dictionary = {1: 0, 2: 0}
 var koth_timer := 0.0
@@ -35,6 +42,32 @@ func _process(delta: float) -> void:
 		scores[occupant] += 1
 		score_changed.emit(scores[1], scores[2])
 		_check_win()
+
+func is_arena_mode() -> bool:
+	return session_type == SessionType.ARENA
+
+func is_play_mode() -> bool:
+	return session_type == SessionType.PLAY
+
+func start_play(mode: Mode = Mode.DEATHMATCH, map_id: Arena.MapId = Arena.MapId.FLAT) -> void:
+	session_type = SessionType.PLAY
+	session_mode = mode
+	session_map = map_id
+	match_over = false
+	winner_id = 0
+	set_mode(mode)
+
+func start_arena(map_id: Arena.MapId = Arena.MapId.FLAT) -> void:
+	session_type = SessionType.ARENA
+	session_mode = Mode.DEATHMATCH
+	session_map = map_id
+	match_over = false
+	winner_id = 0
+	set_mode(Mode.DEATHMATCH)
+
+func return_to_menu() -> void:
+	session_type = SessionType.NONE
+	get_tree().change_scene_to_file(MENU_SCENE)
 
 func set_mode(mode: Mode) -> void:
 	current_mode = mode
