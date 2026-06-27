@@ -16,6 +16,7 @@ const CRASH_SPEED := 25.0
 
 # --- Explosion tracking (fall backup) ---
 const EXPLOSION_METER_DECAY := 80.0
+const EXPLOSION_DISPLACEMENT_SCALE := 0.4
 
 # --- Ground impact bounce ---
 const BOUNCE_UP_SOFT := 110.0
@@ -74,31 +75,49 @@ static func get_status_message(severe: bool, weapon_dropped: bool) -> String:
 
 
 ## Drop weapon and fling it along the blast direction.
-static func drop_weapon_from_blast(player: Node2D, blast_impulse: Vector2) -> bool:
-	if not player.has_method("get_player_id"):
-		return false
-	var current := _read_weapon(player)
+static func drop_weapon_from_blast_unit(unit: Node2D, blast_impulse: Vector2, dropped_by: int = 0) -> bool:
+	var current := _read_weapon(unit)
 	if _is_non_droppable(current):
 		return false
-	var world := player.get_tree().current_scene
+	var world := unit.get_tree().current_scene
 	if world == null:
 		return false
 
-	var muzzle: Node2D = player.get_node_or_null("Wheel/Pelvis/UpperBody/Muzzle")
-	var origin := muzzle.global_position if muzzle else player.global_position
+	var muzzle: Node2D = unit.get_node_or_null("Wheel/Pelvis/UpperBody/Muzzle")
+	var origin := muzzle.global_position if muzzle else unit.global_position
 	var dir := blast_impulse.normalized() if blast_impulse.length_squared() > 1.0 else Vector2(0.8, -0.45).normalized()
 	var strength := clampf(blast_impulse.length() * 0.55, 120.0, 340.0)
-	var launch := dir * strength + Vector2(randf_range(-30.0, 30.0), randf_range(-320.0, -160.0))
-	spawn_weapon_pickup(world, origin, current, launch, player.get_player_id())
-	if player.has_method("set_weapon_type"):
-		player.set_weapon_type(BACKUP_WEAPON)
-	elif "weapon_type" in player:
-		player.weapon_type = BACKUP_WEAPON
+	var horiz_sign := signf(dir.x) if absf(dir.x) > 0.12 else (1.0 if randf() > 0.5 else -1.0)
+	var horiz_speed := maxf(absf(dir.x) * strength * 1.35, randf_range(110.0, 190.0))
+	var launch := Vector2(
+		horiz_sign * horiz_speed + randf_range(-40.0, 40.0),
+		minf(dir.y, -0.15) * strength * 0.55 + randf_range(-150.0, -70.0)
+	)
+	spawn_weapon_pickup(world, origin, current, launch, dropped_by)
+	if unit.has_method("set_weapon_type"):
+		unit.set_weapon_type(BACKUP_WEAPON)
+	elif "weapon_type" in unit:
+		unit.weapon_type = BACKUP_WEAPON
 	return true
 
 
+static func drop_weapon_from_blast(player: Node2D, blast_impulse: Vector2) -> bool:
+	if not player.has_method("get_player_id"):
+		return false
+	return drop_weapon_from_blast_unit(player, blast_impulse, player.get_player_id())
+
+
+static func try_drop_weapon_on_explosion_unit(unit: Node2D, blast_impulse: Vector2, dropped_by: int = 0) -> bool:
+	return drop_weapon_from_blast_unit(unit, blast_impulse, dropped_by)
+
+
 static func try_drop_weapon_on_explosion(player: Node2D, blast_impulse: Vector2) -> bool:
-	return drop_weapon_from_blast(player, blast_impulse)
+	var dropped_by: int = player.get_player_id() if player.has_method("get_player_id") else 0
+	return try_drop_weapon_on_explosion_unit(player, blast_impulse, dropped_by)
+
+
+static func explosion_displacement(impulse: Vector2) -> Vector2:
+	return impulse * EXPLOSION_DISPLACEMENT_SCALE
 
 
 static func resolve_fall(player: Node2D, is_crash: bool, drop_from_explosion: bool) -> Dictionary:

@@ -33,7 +33,6 @@ const MG_GET_UP_RECOIL_BOOST := 3.5
 const BALANCE_DAMP := 1.0
 const DEFAULT_WEAPON := WeaponDefs.Type.ROCKET
 const RECOIL_SCALE := 0.95
-const KNOCKBACK_SCALE := 0.4
 const REGEN_DELAY := 2.5
 const REGEN_RATE := 8.0
 const MAX_SPEED := 26.0
@@ -613,6 +612,8 @@ func respawn_at_spawn() -> void:
 	_finish_respawn()
 
 func get_blast_sample_position() -> Vector2:
+	if _rig and is_instance_valid(_rig.pelvis):
+		return _rig.pelvis.global_position
 	return wheel.global_position if is_instance_valid(wheel) else global_position
 
 
@@ -626,36 +627,38 @@ func receive_explosion_blast(
 ) -> void:
 	if state != State.RIDING:
 		return
-	if not is_owner:
-		take_damage(int(blast_damage * falloff), owner)
 	var impulse := push_dir * knockback * falloff
-	var scaled := impulse * KNOCKBACK_SCALE
+	var scaled := FallConsequences.explosion_displacement(impulse)
 	wheel.apply_central_impulse(scaled)
 	_rig.balance_angular_vel += scaled.x * 0.0012
-	_explosion_impact_meter = FallConsequences.register_explosion_impact(
-		_explosion_impact_meter,
-		scaled.length()
-	)
 	if FallConsequences.try_drop_weapon_on_explosion(self, impulse):
 		last_fall_message = FallConsequences.get_status_message(true, true)
 		_notify_combat_message(last_fall_message)
 		_explosion_impact_meter = 0.0
+	else:
+		_explosion_impact_meter = FallConsequences.register_explosion_impact(
+			_explosion_impact_meter,
+			scaled.length()
+		)
+	if not is_owner:
+		take_damage(int(blast_damage * falloff), owner)
 
 
 func apply_explosion_knockback(impulse: Vector2) -> void:
 	if state != State.RIDING:
 		return
-	var scaled := impulse * KNOCKBACK_SCALE
+	var scaled := FallConsequences.explosion_displacement(impulse)
 	wheel.apply_central_impulse(scaled)
 	_rig.balance_angular_vel += scaled.x * 0.0012
-	_explosion_impact_meter = FallConsequences.register_explosion_impact(
-		_explosion_impact_meter,
-		scaled.length()
-	)
 	if FallConsequences.try_drop_weapon_on_explosion(self, impulse):
 		last_fall_message = FallConsequences.get_status_message(true, true)
 		_notify_combat_message(last_fall_message)
 		_explosion_impact_meter = 0.0
+	else:
+		_explosion_impact_meter = FallConsequences.register_explosion_impact(
+			_explosion_impact_meter,
+			scaled.length()
+		)
 
 
 func _notify_combat_message(text: String) -> void:

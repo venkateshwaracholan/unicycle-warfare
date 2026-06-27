@@ -16,6 +16,7 @@ var is_boss := false
 var _retreat_timer := 0.0
 var _last_x := 0.0
 var _ground_y := 470.0
+var _blast_velocity := Vector2.ZERO
 
 @onready var wheel: Node2D = $Wheel
 
@@ -127,18 +128,69 @@ func take_damage(amount: int, from: Node2D = null) -> void:
 		queue_free()
 
 
+func get_blast_sample_position() -> Vector2:
+	if _rig and is_instance_valid(_rig.upper_body):
+		return _rig.upper_body.global_position
+	if is_instance_valid(wheel):
+		return wheel.global_position + Vector2(0, -38)
+	return global_position + Vector2(0, -40)
+
+
+func receive_explosion_blast(
+	blast_damage: int,
+	falloff: float,
+	knockback: float,
+	push_dir: Vector2,
+	is_owner: bool,
+	owner: Node2D
+) -> void:
+	var impulse := push_dir * knockback * falloff
+	_apply_explosion_displacement(impulse)
+	FallConsequences.try_drop_weapon_on_explosion_unit(self, impulse)
+	if not is_owner:
+		take_damage(maxi(1, int(blast_damage * falloff)), owner)
+
+
+func apply_explosion_knockback(impulse: Vector2) -> void:
+	_apply_explosion_displacement(impulse)
+	FallConsequences.try_drop_weapon_on_explosion_unit(self, impulse)
+
+
+func _apply_explosion_displacement(impulse: Vector2) -> void:
+	var displacement := FallConsequences.explosion_displacement(impulse)
+	global_position.x += displacement.x * 0.12
+	global_position.x = clampf(global_position.x, 100.0, 1180.0)
+	global_position.y = _ground_y
+	_blast_velocity += displacement
+	if _rig:
+		_rig.balance_angular_vel += displacement.x * 0.0012
+
+
+func _apply_blast_velocity(delta: float) -> void:
+	if _blast_velocity.length_squared() <= 4.0:
+		_blast_velocity = Vector2.ZERO
+		return
+	global_position.x += _blast_velocity.x * delta
+	global_position.x = clampf(global_position.x, 100.0, 1180.0)
+	global_position.y = _ground_y
+	_blast_velocity *= exp(-4.5 * delta)
+
+
 func _drop_weapon_loot() -> void:
 	var weapon := get_weapon_type()
 	if not WeaponDefs.can_spawn_as_pickup(weapon):
 		return
 	var world := get_tree().current_scene
 	if world:
-		FallConsequences.spawn_weapon_pickup(world, global_position, weapon, Vector2(randf_range(-80, 80), -120))
+		var muzzle: Node2D = get_node_or_null("Wheel/Pelvis/UpperBody/Muzzle")
+		var origin := muzzle.global_position if muzzle else global_position
+		FallConsequences.spawn_weapon_pickup(world, origin, weapon, Vector2(randf_range(-80, 80), -120))
 
 
 func _physics_process(delta: float) -> void:
 	_weapon_user.tick(delta)
 	_retreat_timer = maxf(_retreat_timer - delta, 0.0)
+	_apply_blast_velocity(delta)
 
 	var target := _pick_target()
 	var vx := 0.0

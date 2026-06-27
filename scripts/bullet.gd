@@ -72,37 +72,50 @@ func _hits_world_surface() -> bool:
 		return true
 	return false
 
+func _living_owner() -> Node2D:
+	return owner_node if is_instance_valid(owner_node) else null
+
+
 func _on_body_entered(body: Node) -> void:
+	var shooter := _living_owner()
 	var target := _resolve_damage_target(body)
-	if target == null or target == owner_node:
+	if target == null or target == shooter:
 		if is_rocket:
-			_explode()
+			_explode(null)
 		else:
 			_impact_at(global_position, -velocity.normalized())
 			queue_free()
 		return
 	if is_rocket:
-		_explode()
+		_explode(_combat_direct_target(target))
 		return
 	if is_harpoon and target.has_method("apply_harpoon_pull"):
-		target.apply_harpoon_pull(owner_node, global_position)
-		if owner_node and owner_node.has_method("apply_harpoon_recoil_pull"):
-			owner_node.apply_harpoon_recoil_pull(global_position)
+		target.apply_harpoon_pull(shooter, global_position)
+		if shooter and shooter.has_method("apply_harpoon_recoil_pull"):
+			shooter.apply_harpoon_recoil_pull(global_position)
 		queue_free()
 		return
 	if target.has_method("take_damage"):
-		target.take_damage(damage, owner_node)
+		target.take_damage(damage, shooter)
 	_impact_at(global_position, -velocity.normalized())
 	queue_free()
 
 func _on_area_entered(area: Area2D) -> void:
 	_on_body_entered(area)
 
-func _explode() -> void:
+func _explode(direct_target: Node2D = null) -> void:
 	var world := get_tree().current_scene
 	if world:
-		CombatActions.apply_explosion(world, global_position, 85.0, damage, owner_node, faction, 500.0)
+		CombatActions.apply_explosion(
+			world, global_position, 85.0, damage, _living_owner(), faction, 500.0, direct_target
+		)
 	queue_free()
+
+
+func _combat_direct_target(target: Node) -> Node2D:
+	if target is Node2D and (target.is_in_group("players") or target.is_in_group("enemies")):
+		return target
+	return null
 
 func _resolve_damage_target(node: Node) -> Node:
 	var current := node
@@ -110,7 +123,7 @@ func _resolve_damage_target(node: Node) -> Node:
 		if current.is_in_group("destructible") and current.has_method("take_damage"):
 			return current
 		if current.has_method("take_damage") and current is Node2D:
-			if CombatActions.can_hit(faction, current, owner_node):
+			if CombatActions.can_hit(faction, current, _living_owner()):
 				return current
 		current = current.get_parent()
 	return null

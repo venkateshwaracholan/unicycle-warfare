@@ -19,10 +19,14 @@ func _physics_process(delta: float) -> void:
 	if position.y > 900.0:
 		queue_free()
 
+func _living_owner() -> Node2D:
+	return owner_node if is_instance_valid(owner_node) else null
+
+
 func _explode() -> void:
 	var world := get_tree().current_scene
 	if world:
-		CombatActions.apply_explosion(world, global_position, 90.0, damage, owner_node, faction, 600.0)
+		CombatActions.apply_explosion(world, global_position, 90.0, damage, _living_owner(), faction, 600.0)
 	queue_free()
 
 func _on_body_entered(body: Node) -> void:

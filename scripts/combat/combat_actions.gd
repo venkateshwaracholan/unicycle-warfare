@@ -129,39 +129,44 @@ static func apply_explosion(
 	center: Vector2,
 	radius: float,
 	damage: int,
-	owner: Node2D,
-	faction: Faction.Id,
-	knockback: float = 500.0
+	owner = null,
+	faction: Faction.Id = Faction.Id.NEUTRAL,
+	knockback: float = 500.0,
+	direct_target: Node2D = null
 ) -> void:
+	var blast_owner: Node2D = owner if is_instance_valid(owner) else null
 	CombatVFX.explosion(center, radius)
 	for group_name in ["players", "enemies"]:
 		for node in world.get_tree().get_nodes_in_group(group_name):
 			if not is_instance_valid(node) or node is not Node2D:
 				continue
 			var target: Node2D = node
-			var is_owner := target == owner
-			if not is_owner and not can_hit(faction, target, owner):
+			var is_owner := blast_owner != null and target == blast_owner
+			if not is_owner and not can_hit(faction, target, blast_owner):
 				continue
 			var sample_pos := target.global_position
 			if target.has_method("get_blast_sample_position"):
 				sample_pos = target.call("get_blast_sample_position")
 			var offset := sample_pos - center
 			var dist: float = offset.length()
-			if dist >= radius:
+			var direct_hit := direct_target != null and target == direct_target
+			if not direct_hit and dist >= radius:
 				continue
-			var falloff: float = 1.0 - dist / radius
+			var falloff: float = 1.0 if direct_hit else (1.0 - dist / radius)
 			var push_dir := offset.normalized() if offset.length_squared() > 4.0 else Vector2(0.65, -0.55).normalized()
 			if target.has_method("receive_explosion_blast"):
-				target.call("receive_explosion_blast", damage, falloff, knockback, push_dir, is_owner, owner)
+				target.call("receive_explosion_blast", damage, falloff, knockback, push_dir, is_owner, blast_owner)
 				continue
 			if not is_owner and target.has_method("take_damage"):
-				target.take_damage(int(damage * falloff), owner)
+				target.take_damage(int(damage * falloff), blast_owner)
 			if target.has_method("apply_explosion_knockback"):
 				target.apply_explosion_knockback(push_dir * knockback * falloff)
 
 
-static func can_hit(attacker_faction: Faction.Id, target: Node2D, attacker_node: Node2D = null) -> bool:
-	if attacker_node != null and target != null:
+static func can_hit(attacker_faction: Faction.Id, target: Node2D, attacker_node = null) -> bool:
+	if not is_instance_valid(target):
+		return false
+	if attacker_node != null and is_instance_valid(attacker_node):
 		return Faction.can_damage_between(attacker_node, target)
 	return Faction.can_damage(attacker_faction, Faction.from_node(target))
 
