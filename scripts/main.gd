@@ -1,7 +1,6 @@
 extends Node2D
 
 const PLAYER_SCENE := preload("res://scenes/player.tscn")
-const WEAPON_PICKUP_SCENE := preload("res://scenes/weapon_pickup.tscn")
 const PLAY_CONTROLLER_SCRIPT := preload("res://scripts/modes/play_mode_controller.gd")
 
 const WEAPON_DROP_MIN := 2.5
