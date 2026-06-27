@@ -1,9 +1,14 @@
+class_name CharacterVisual
 extends Node2D
 
 @export var color := Color.WHITE
 @export var is_rider := false
 @export var is_pelvis := false
 @export var team_color := Color.RED
+
+enum WheelStyle { STANDARD, BMX, MILITARY, WOOD, MONSTER, SPIKED, HOVER }
+
+@export var wheel_style: WheelStyle = WheelStyle.STANDARD
 
 var weapon_type: WeaponDefs.Type = WeaponDefs.Type.NONE
 
@@ -29,26 +34,69 @@ func _draw_pelvis() -> void:
 	Shapes.rounded_rect(self, Rect2(-10, 0, 20, 8), 3.0, SHORTS_COLOR)
 
 func _draw_wheel() -> void:
-	var tire_r := 22.0
-	var tire_w := 5.0
+	match wheel_style:
+		WheelStyle.BMX:
+			_draw_wheel_variant(22.0, 8.0, Color(0.06, 0.06, 0.07), false, true)
+		WheelStyle.MILITARY:
+			_draw_wheel_variant(23.0, 7.0, Color(0.12, 0.14, 0.10), true, false)
+		WheelStyle.WOOD:
+			_draw_wheel_wood()
+		WheelStyle.MONSTER:
+			_draw_wheel_variant(24.0, 9.0, Color(0.14, 0.14, 0.16), false, false)
+		WheelStyle.SPIKED:
+			_draw_wheel_variant(22.0, 5.0, Color(0.10, 0.10, 0.12), true, true)
+			_draw_wheel_spikes(22.0)
+		WheelStyle.HOVER:
+			_draw_wheel_hover()
+		_:
+			_draw_wheel_variant(22.0, 5.0, Color(0.10, 0.10, 0.12), true, true)
+
+
+func _draw_wheel_variant(tire_r: float, tire_w: float, tire_color: Color, wire: bool, blade: bool) -> void:
 	var tire_inner := tire_r - tire_w * 0.5
 	var rim_attach := tire_inner - 0.55
 	var rim_bed := tire_inner - 1.05
-
 	_draw_spoke_bed(rim_bed)
-	_draw_wire_spokes(rim_attach)
-	_draw_blade_spokes(rim_attach)
-	_draw_rim(tire_inner, tire_r, tire_w, rim_bed)
-	_draw_hub()
+	if wire:
+		_draw_wire_spokes(rim_attach)
+	if blade:
+		_draw_blade_spokes(rim_attach)
+	_draw_rim(tire_inner, tire_r, tire_w, rim_bed, tire_color)
+
+
+func _draw_wheel_wood() -> void:
+	var tire_r := 22.0
+	draw_arc(Vector2.ZERO, tire_r, 0, TAU, 40, Color(0.45, 0.32, 0.2), 5.0)
+	for i in 8:
+		var a := float(i) / 8.0 * TAU
+		draw_line(Vector2.ZERO, Vector2(cos(a), sin(a)) * (tire_r - 3.0), Color(0.38, 0.26, 0.16), 3.0)
+	draw_circle(Vector2.ZERO, 6.0, Color(0.32, 0.22, 0.14))
+	draw_arc(Vector2.ZERO, tire_r - 1.0, 0, TAU, 32, Color(0.28, 0.18, 0.1), 2.0)
+
+
+func _draw_wheel_spikes(radius: float) -> void:
+	for i in 10:
+		var a := float(i) / 10.0 * TAU
+		var base := Vector2(cos(a), sin(a)) * radius
+		var tip := Vector2(cos(a), sin(a)) * (radius + 7.0)
+		draw_line(base, tip, Color(0.62, 0.64, 0.68), 2.5)
+
+
+func _draw_wheel_hover() -> void:
+	draw_circle(Vector2.ZERO, 18.0, Color(0.15, 0.65, 0.95, 0.22))
+	draw_arc(Vector2.ZERO, 22.0, 0, TAU, 36, Color(0.35, 0.82, 1.0, 0.55), 3.5)
+	draw_arc(Vector2.ZERO, 14.0, 0, TAU, 24, Color(0.55, 0.92, 1.0, 0.35), 2.0)
+	draw_circle(Vector2.ZERO, 7.0, Color(0.7, 0.95, 1.0, 0.65))
 
 func _draw_spoke_bed(radius: float) -> void:
 	draw_arc(Vector2.ZERO, radius, 0, TAU, 48, Color(0.18, 0.18, 0.21), 2.4)
 
-func _draw_rim(tire_inner: float, tire_r: float, tire_w: float, rim_bed: float) -> void:
+func _draw_rim(tire_inner: float, tire_r: float, tire_w: float, rim_bed: float, tire_color: Color = Color(0.10, 0.10, 0.12)) -> void:
 	draw_arc(Vector2.ZERO, rim_bed + 0.35, 0, TAU, 48, Color(0.30, 0.30, 0.34), 1.0)
 	draw_arc(Vector2.ZERO, tire_inner - 0.45, 0, TAU, 48, Color(0.58, 0.58, 0.62), 1.6)
-	draw_arc(Vector2.ZERO, tire_r, 0, TAU, 48, Color(0.10, 0.10, 0.12), tire_w)
+	draw_arc(Vector2.ZERO, tire_r, 0, TAU, 48, tire_color, tire_w)
 	draw_arc(Vector2.ZERO, tire_r - tire_w * 0.35, -PI * 0.42, PI * 0.12, 10, Color(0.20, 0.20, 0.22), 1.1)
+	_draw_hub()
 
 func _draw_hub() -> void:
 	draw_circle(Vector2.ZERO, 7.2, Color(0.24, 0.24, 0.28))

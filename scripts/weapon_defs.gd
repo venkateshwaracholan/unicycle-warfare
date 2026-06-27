@@ -212,19 +212,24 @@ const DATA := {
 static func get_data(weapon_type: Type) -> Dictionary:
 	return DATA.get(weapon_type, DATA[Type.NONE])
 
+static func can_spawn_as_pickup(weapon_type: Type) -> bool:
+	return weapon_type != Type.NONE and weapon_type != Type.PISTOL
+
+
 static func random_loot_type() -> Type:
 	var pool: Array[Type] = []
 	for t in DATA.keys():
-		if t == Type.NONE:
+		if not can_spawn_as_pickup(t):
 			continue
 		if DATA[t]["category"] == Category.RANGED:
 			pool.append(t)
 	return pool[randi() % pool.size()]
 
+
 static func random_sky_loot_type() -> Type:
 	var pool: Array[Type] = []
 	for t in DATA.keys():
-		if t == Type.NONE or t == Type.MINIGUN:
+		if not can_spawn_as_pickup(t) or t == Type.MINIGUN:
 			continue
 		if DATA[t]["category"] == Category.RANGED:
 			pool.append(t)

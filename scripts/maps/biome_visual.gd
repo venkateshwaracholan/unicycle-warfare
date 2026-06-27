@@ -76,6 +76,8 @@ func _draw_particles(kind: String) -> void:
 	if kind.is_empty():
 		return
 	var count := 36
+	if kind == "dust" or kind == "ash":
+		count = 64
 	for i in count:
 		var seed := float(i) * 17.3 + float(map_id) * 3.7
 		var px := fmod(seed * 41.0 + _time * _particle_speed(kind), 1280.0)

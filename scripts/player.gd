@@ -46,7 +46,7 @@ var _last_vel_x := 0.0
 var _sustained_balance_push := 0.0
 
 @onready var wheel: RigidBody2D = $Wheel
-@onready var wheel_visual: Node2D = $Wheel/Visual
+@onready var wheel_visual: CharacterVisual = $Wheel/Visual
 @onready var pedals: Node2D = $Wheel/Pedals
 @onready var pelvis: Node2D = $Wheel/Pelvis
 @onready var upper_body: Node2D = $Wheel/Pelvis/UpperBody
@@ -93,6 +93,7 @@ func _ready() -> void:
 	wheel.body_entered.connect(_on_wheel_body_entered)
 	_rig.sync_pose()
 	$Wheel/Pelvis/UpperBody/Visual.team_color = team_color
+	wheel_visual.wheel_style = CharacterVisual.WheelStyle.MILITARY if player_id == 1 else CharacterVisual.WheelStyle.BMX
 	if GameManager.is_play_mode():
 		set_weapon_type(WeaponDefs.Type.MINIGUN)
 	elif GameManager.current_mode == GameManager.Mode.GUN_GAME:

@@ -171,14 +171,11 @@ func _sky_weapon_count() -> int:
 func _drop_weapon_from_sky() -> void:
 	if _sky_weapon_count() >= MAX_SKY_WEAPONS:
 		return
-	var pickup := WEAPON_PICKUP_SCENE.instantiate()
-	pickup.add_to_group("weapon_loot")
-	pickup.weapon_type = WeaponDefs.random_sky_loot_type()
+	var weapon := WeaponDefs.random_sky_loot_type()
 	var x := randf_range(160.0, 1120.0)
 	var y := randf_range(-160.0, -30.0)
-	pickup.global_position = Vector2(x, y)
-	pickup.launch(Vector2(randf_range(-100.0, 100.0), randf_range(40.0, 120.0)))
-	add_child(pickup)
+	var vel := Vector2(randf_range(-100.0, 100.0), randf_range(40.0, 120.0))
+	FallConsequences.spawn_weapon_pickup(self, Vector2(x, y), weapon, vel)
 
 
 func _spawn_players() -> void:

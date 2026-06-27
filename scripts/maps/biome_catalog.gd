@@ -23,12 +23,38 @@ static func get_particle_kind(map_id: MapDefs.MapId) -> String:
 	return get_visual(map_id).get("particles", "")
 
 
+static func get_platform_props(map_id: MapDefs.MapId) -> Array:
+	return get_visual(map_id).get("platform", DEFAULT_PLATFORM_PROPS)
+
+
+const DEFAULT_PLATFORM_PROPS := [
+	{"type": "sandbags", "x": 0.07, "scale": 1.0},
+	{"type": "barrel", "x": 0.2, "scale": 1.0},
+	{"type": "ammo_crate", "x": 0.35, "scale": 1.0},
+	{"type": "broken_sign", "x": 0.48, "scale": 1.0},
+	{"type": "barbed_wire", "x": 0.58, "scale": 1.0},
+	{"type": "junk_truck", "x": 0.72, "scale": 0.85},
+	{"type": "rock_pile", "x": 0.84, "scale": 1.0},
+	{"type": "tire_stack", "x": 0.93, "scale": 0.9},
+]
+
+
 const VISUALS := {
 	MapDefs.MapId.DESERT: {
-		"tagline": "Open dunes · gusting wind",
+		"tagline": "War-torn dunes · gusting wind",
 		"particles": "dust",
-		"light_tint": Color(1.0, 0.95, 0.82, 0.12),
+		"light_tint": Color(1.0, 0.88, 0.65, 0.14),
 		"bg_silhouette": "desert_hills",
+		"platform": [
+			{"type": "sandbags", "x": 0.06, "scale": 1.1},
+			{"type": "barrel", "x": 0.18, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.32, "scale": 1.0},
+			{"type": "broken_sign", "x": 0.44, "scale": 1.0},
+			{"type": "sandbags", "x": 0.56, "scale": 0.9},
+			{"type": "junk_truck", "x": 0.7, "scale": 0.9},
+			{"type": "barrel", "x": 0.82, "scale": 1.0},
+			{"type": "rock_pile", "x": 0.92, "scale": 1.0},
+		],
 		"layers": {
 			"bg": [
 				{"type": "dune", "x": 0.08, "scale": 1.3},
@@ -37,14 +63,18 @@ const VISUALS := {
 				{"type": "rock_arch", "x": 0.88, "scale": 1.0},
 			],
 			"mid": [
-				{"type": "windmill", "x": 0.18, "scale": 1.0},
+				{"type": "windmill", "x": 0.14, "scale": 1.0},
+				{"type": "junk_truck", "x": 0.28, "scale": 0.75},
 				{"type": "cactus", "x": 0.42, "scale": 1.0},
 				{"type": "wagon", "x": 0.58, "scale": 1.0},
-				{"type": "cactus", "x": 0.78, "scale": 0.85},
+				{"type": "barrel", "x": 0.68, "scale": 0.85},
+				{"type": "windmill", "x": 0.82, "scale": 0.9},
 			],
 			"fg": [
-				{"type": "cactus", "x": 0.12, "scale": 1.2},
+				{"type": "sandbags", "x": 0.1, "scale": 1.15},
+				{"type": "cactus", "x": 0.24, "scale": 1.2},
 				{"type": "wagon_wheel", "x": 0.62, "scale": 1.0},
+				{"type": "rock_pile", "x": 0.88, "scale": 0.9},
 			],
 		},
 		"hazards": [
@@ -56,6 +86,15 @@ const VISUALS := {
 		"particles": "steam",
 		"light_tint": Color(1.0, 0.55, 0.2, 0.1),
 		"bg_silhouette": "factory_skyline",
+		"platform": [
+			{"type": "ammo_crate", "x": 0.08, "scale": 1.0},
+			{"type": "barrel", "x": 0.22, "scale": 1.0},
+			{"type": "tire_stack", "x": 0.38, "scale": 1.0},
+			{"type": "sandbags", "x": 0.52, "scale": 1.05},
+			{"type": "broken_sign", "x": 0.65, "scale": 0.9},
+			{"type": "barrel", "x": 0.78, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.9, "scale": 1.0},
+		],
 		"layers": {
 			"bg": [
 				{"type": "factory_stack", "x": 0.12, "scale": 1.0},
@@ -85,6 +124,14 @@ const VISUALS := {
 		"particles": "ember",
 		"light_tint": Color(1.0, 0.7, 0.35, 0.1),
 		"bg_silhouette": "castle_wall",
+		"platform": [
+			{"type": "sandbags", "x": 0.1, "scale": 1.1},
+			{"type": "barrel", "x": 0.24, "scale": 1.0},
+			{"type": "rock_pile", "x": 0.4, "scale": 1.1},
+			{"type": "barbed_wire", "x": 0.55, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.68, "scale": 1.0},
+			{"type": "broken_sign", "x": 0.82, "scale": 1.0},
+		],
 		"layers": {
 			"bg": [
 				{"type": "castle_tower", "x": 0.1, "scale": 1.2},
@@ -110,6 +157,14 @@ const VISUALS := {
 		"particles": "smoke",
 		"light_tint": Color(0.85, 0.85, 0.95, 0.08),
 		"bg_silhouette": "train_trestle",
+		"platform": [
+			{"type": "cargo_crate", "x": 0.12, "scale": 1.0},
+			{"type": "barrel", "x": 0.28, "scale": 1.0},
+			{"type": "cargo_crate", "x": 0.44, "scale": 1.0},
+			{"type": "tire_stack", "x": 0.58, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.72, "scale": 1.0},
+			{"type": "barrel", "x": 0.86, "scale": 1.0},
+		],
 		"layers": {
 			"bg": [
 				{"type": "tunnel", "x": 0.15, "scale": 1.0},
@@ -135,6 +190,14 @@ const VISUALS := {
 		"particles": "dust",
 		"light_tint": Color(0.6, 0.85, 1.0, 0.08),
 		"bg_silhouette": "mine_cave",
+		"platform": [
+			{"type": "rock_pile", "x": 0.1, "scale": 1.0},
+			{"type": "barrel", "x": 0.26, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.42, "scale": 1.0},
+			{"type": "sandbags", "x": 0.56, "scale": 0.95},
+			{"type": "barrel", "x": 0.7, "scale": 1.0},
+			{"type": "rock_pile", "x": 0.86, "scale": 1.1},
+		],
 		"layers": {
 			"bg": [
 				{"type": "cave_mouth", "x": 0.08, "scale": 1.0},
@@ -158,6 +221,14 @@ const VISUALS := {
 		"particles": "cloud",
 		"light_tint": Color(0.75, 0.88, 1.0, 0.12),
 		"bg_silhouette": "sky_clouds",
+		"platform": [
+			{"type": "ammo_crate", "x": 0.14, "scale": 1.0},
+			{"type": "barrel", "x": 0.3, "scale": 1.0},
+			{"type": "sandbags", "x": 0.48, "scale": 1.0},
+			{"type": "tire_stack", "x": 0.62, "scale": 0.9},
+			{"type": "barrel", "x": 0.76, "scale": 1.0},
+			{"type": "broken_sign", "x": 0.9, "scale": 0.85},
+		],
 		"layers": {
 			"bg": [
 				{"type": "cloud", "x": 0.2, "scale": 1.2},
@@ -184,6 +255,15 @@ const VISUALS := {
 		"particles": "rain_mist",
 		"light_tint": Color(0.55, 0.75, 1.0, 0.1),
 		"bg_silhouette": "city_skyline",
+		"platform": [
+			{"type": "sandbags", "x": 0.08, "scale": 1.0},
+			{"type": "barrel", "x": 0.22, "scale": 1.0},
+			{"type": "tire_stack", "x": 0.36, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.5, "scale": 1.0},
+			{"type": "barbed_wire", "x": 0.64, "scale": 1.0},
+			{"type": "junk_truck", "x": 0.78, "scale": 0.75},
+			{"type": "barrel", "x": 0.9, "scale": 1.0},
+		],
 		"layers": {
 			"bg": [
 				{"type": "skyscraper", "x": 0.1, "scale": 1.2},
@@ -209,6 +289,14 @@ const VISUALS := {
 		"particles": "mist",
 		"light_tint": Color(0.7, 0.9, 1.0, 0.1),
 		"bg_silhouette": "dam_wall",
+		"platform": [
+			{"type": "sandbags", "x": 0.12, "scale": 1.0},
+			{"type": "barrel", "x": 0.28, "scale": 1.0},
+			{"type": "rock_pile", "x": 0.44, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.58, "scale": 1.0},
+			{"type": "barrel", "x": 0.72, "scale": 1.0},
+			{"type": "broken_sign", "x": 0.86, "scale": 1.0},
+		],
 		"layers": {
 			"bg": [
 				{"type": "dam_wall", "x": 0.5, "scale": 1.0},
@@ -233,6 +321,14 @@ const VISUALS := {
 		"particles": "ash",
 		"light_tint": Color(1.0, 0.45, 0.15, 0.14),
 		"bg_silhouette": "volcano_peak",
+		"platform": [
+			{"type": "rock_pile", "x": 0.1, "scale": 1.1},
+			{"type": "barrel", "x": 0.26, "scale": 1.0},
+			{"type": "sandbags", "x": 0.42, "scale": 1.0},
+			{"type": "barrel", "x": 0.58, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.72, "scale": 1.0},
+			{"type": "rock_pile", "x": 0.88, "scale": 1.0},
+		],
 		"layers": {
 			"bg": [
 				{"type": "volcano_peak", "x": 0.88, "scale": 1.0},
@@ -256,6 +352,15 @@ const VISUALS := {
 		"particles": "mist",
 		"light_tint": Color(0.85, 0.95, 1.0, 0.08),
 		"bg_silhouette": "harbor_skyline",
+		"platform": [
+			{"type": "cargo_crate", "x": 0.1, "scale": 1.0},
+			{"type": "barrel", "x": 0.26, "scale": 1.0},
+			{"type": "cargo_crate", "x": 0.42, "scale": 1.0},
+			{"type": "tire_stack", "x": 0.56, "scale": 1.0},
+			{"type": "ammo_crate", "x": 0.7, "scale": 1.0},
+			{"type": "barrel", "x": 0.84, "scale": 1.0},
+			{"type": "sandbags", "x": 0.94, "scale": 0.9},
+		],
 		"layers": {
 			"bg": [
 				{"type": "ship", "x": 0.15, "scale": 1.0},

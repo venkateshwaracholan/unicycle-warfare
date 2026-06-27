@@ -37,7 +37,7 @@ static func _read_weapon(player: Node2D) -> WeaponDefs.Type:
 
 
 static func _is_non_droppable(weapon: WeaponDefs.Type) -> bool:
-	return weapon == WeaponDefs.Type.NONE or weapon == BACKUP_WEAPON
+	return not WeaponDefs.can_spawn_as_pickup(weapon)
 
 
 static func spawn_weapon_pickup(
@@ -47,8 +47,7 @@ static func spawn_weapon_pickup(
 	velocity: Vector2,
 	dropped_by: int = 0
 ) -> Node:
-	# Player drops never spawn the default sidearm — you already respawn with it.
-	if dropped_by > 0 and _is_non_droppable(weapon):
+	if _is_non_droppable(weapon):
 		return null
 	var pickup := WEAPON_PICKUP_SCENE.instantiate()
 	pickup.add_to_group("weapon_loot")

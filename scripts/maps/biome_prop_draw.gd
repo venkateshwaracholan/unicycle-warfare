@@ -279,3 +279,58 @@ static func draw_prop(
 			canvas.draw_circle(pos + Vector2(0, -12 * s), 10 * s, Color(0.95, 0.35, 0.2))
 		"wave":
 			canvas.draw_arc(pos + Vector2(0, 8 * s), 40 * s, PI, TAU, 16, Color(0.55, 0.72, 0.88, 0.35), 4.0)
+		"sandbags":
+			for row in 2:
+				for col in 3:
+					var ox := (-24.0 + col * 24.0) * s
+					var oy := (-8.0 - row * 10.0) * s
+					canvas.draw_rect(Rect2(pos.x + ox - 10 * s, pos.y + oy - 8 * s, 20 * s, 8 * s), Color(0.52, 0.42, 0.28))
+			canvas.draw_rect(Rect2(pos.x - 34 * s, pos.y - 2 * s, 68 * s, 4 * s), Color(0.45, 0.36, 0.24))
+		"barrel":
+			var blink := sin(time * 5.0 + pos.x * 0.01) > 0.85
+			canvas.draw_rect(Rect2(pos.x - 12 * s, pos.y - 32 * s, 24 * s, 32 * s), Color(0.55, 0.22, 0.18))
+			canvas.draw_rect(Rect2(pos.x - 10 * s, pos.y - 28 * s, 20 * s, 4 * s), Color(0.15, 0.12, 0.1))
+			if blink:
+				canvas.draw_circle(pos + Vector2(0, -36 * s), 5 * s, Color(1.0, 0.35, 0.1, 0.75))
+		"ammo_crate":
+			canvas.draw_rect(Rect2(pos.x - 24 * s, pos.y - 28 * s, 48 * s, 28 * s), Color(0.42, 0.38, 0.32))
+			canvas.draw_rect(Rect2(pos.x - 18 * s, pos.y - 22 * s, 36 * s, 6 * s), Color(0.55, 0.48, 0.2))
+			canvas.draw_line(pos + Vector2(-16 * s, -14 * s), pos + Vector2(16 * s, -14 * s), Color(0.25, 0.22, 0.18), 2.0)
+		"broken_sign":
+			canvas.draw_rect(Rect2(pos.x - 3 * s, pos.y - 55 * s, 6 * s, 55 * s), Color(0.42, 0.4, 0.38))
+			canvas.draw_colored_polygon(
+				PackedVector2Array([
+					pos + Vector2(-28 * s, -48 * s),
+					pos + Vector2(18 * s, -42 * s),
+					pos + Vector2(12 * s, -28 * s),
+					pos + Vector2(-22 * s, -32 * s),
+				]),
+				Color(0.72, 0.18, 0.15)
+			)
+			canvas.draw_line(pos + Vector2(-8 * s, -38 * s), pos + Vector2(4 * s, -34 * s), Color(0.15, 0.12, 0.1), 2.0)
+		"junk_truck":
+			canvas.draw_rect(Rect2(pos.x - 55 * s, pos.y - 38 * s, 90 * s, 38 * s), Color(0.38, 0.32, 0.28))
+			canvas.draw_rect(Rect2(pos.x + 20 * s, pos.y - 52 * s, 30 * s, 20 * s), Color(0.32, 0.35, 0.38))
+			canvas.draw_circle(pos + Vector2(-30 * s, 0), 12 * s, Color(0.12, 0.1, 0.08))
+			canvas.draw_circle(pos + Vector2(28 * s, 0), 12 * s, Color(0.12, 0.1, 0.08))
+			canvas.draw_line(pos + Vector2(-20 * s, -20 * s), pos + Vector2(10 * s, -35 * s), Color(0.2, 0.18, 0.16), 3.0)
+		"rock_pile":
+			for i in 4:
+				var rx := (-20.0 + i * 13.0 + sin(time + i) * 2.0) * s
+				var ry := (-6.0 - (i % 3) * 8.0) * s
+				canvas.draw_circle(pos + Vector2(rx, ry), (8.0 + i * 2.0) * s, palette.get("platform", Color.GRAY).darkened(0.05 + i * 0.04))
+		"tire_stack":
+			for i in 3:
+				canvas.draw_arc(pos + Vector2(0, -8 * s - i * 10 * s), 14 * s, 0, TAU, 14, Color(0.12, 0.1, 0.08), 5.0)
+		"barbed_wire":
+			var w := 90.0 * s
+			for i in 6:
+				var px := -w * 0.5 + i * (w / 5.0)
+				var wave_y := sin(time * 2.0 + i * 0.8) * 3.0 * s
+				canvas.draw_line(
+					pos + Vector2(px, -18 * s + wave_y),
+					pos + Vector2(px + 12 * s, -22 * s - wave_y),
+					Color(0.45, 0.45, 0.48),
+					2.0
+				)
+			canvas.draw_line(pos + Vector2(-w * 0.5, -12 * s), pos + Vector2(w * 0.5, -12 * s), Color(0.35, 0.35, 0.38), 2.0)

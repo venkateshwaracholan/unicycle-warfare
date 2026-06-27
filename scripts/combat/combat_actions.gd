@@ -37,15 +37,22 @@ static func _fire_ranged(
 
 	for i in pellets:
 		var shot_dir := dir.rotated(randf_range(-data.get("spread", 0.0), data.get("spread", 0.0)))
+		var muzzle := user.get_muzzle_global_position()
 		var bullet := BULLET_SCENE.instantiate()
-		bullet.global_position = user.get_muzzle_global_position()
+		bullet.global_position = muzzle
 		bullet.velocity = shot_dir * float(data.get("bullet_speed", 800.0))
 		bullet.damage = int(data.get("damage", 8))
 		bullet.owner_node = user.owner
 		bullet.faction = user.faction
 		bullet.is_rocket = data.get("explosive", false)
 		bullet.is_harpoon = data.get("harpoon", false)
+		bullet.tracer_color = data["color"]
 		root.add_child(bullet)
+
+	if pellets > 0:
+		var muzzle_pos := user.get_muzzle_global_position()
+		CombatVFX.muzzle_flash(muzzle_pos, dir, weapon)
+		CombatVFX.shell_casing(muzzle_pos, dir)
 
 	return {
 		"fired": true,
@@ -126,6 +133,7 @@ static func apply_explosion(
 	faction: Faction.Id,
 	knockback: float = 500.0
 ) -> void:
+	CombatVFX.explosion(center, radius)
 	for group_name in ["players", "enemies"]:
 		for node in world.get_tree().get_nodes_in_group(group_name):
 			if not is_instance_valid(node) or node == owner or node is not Node2D:

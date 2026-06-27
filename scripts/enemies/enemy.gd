@@ -56,7 +56,24 @@ func _configure_visuals() -> void:
 		_rig.upper_visual.team_color = color
 	var body_scale := 1.35 if is_boss else 1.0
 	wheel.scale = Vector2(body_scale, body_scale)
+	var wvis: CharacterVisual = wheel.get_node_or_null("Visual") as CharacterVisual
+	if wvis:
+		wvis.wheel_style = _wheel_style_for_enemy()
 	_sync_weapon_visual()
+
+
+func _wheel_style_for_enemy() -> CharacterVisual.WheelStyle:
+	match enemy_type:
+		EnemyDefs.Type.SHOTGUN_GUY:
+			return CharacterVisual.WheelStyle.SPIKED
+		EnemyDefs.Type.SNIPER:
+			return CharacterVisual.WheelStyle.MILITARY
+		EnemyDefs.Type.ROCKET_GUY:
+			return CharacterVisual.WheelStyle.MONSTER
+		EnemyDefs.Type.TANK:
+			return CharacterVisual.WheelStyle.MONSTER if is_boss else CharacterVisual.WheelStyle.MILITARY
+		_:
+			return CharacterVisual.WheelStyle.STANDARD
 
 
 func _sync_weapon_visual() -> void:
@@ -112,7 +129,7 @@ func take_damage(amount: int, from: Node2D = null) -> void:
 
 func _drop_weapon_loot() -> void:
 	var weapon := get_weapon_type()
-	if weapon == WeaponDefs.Type.PISTOL:
+	if not WeaponDefs.can_spawn_as_pickup(weapon):
 		return
 	var world := get_tree().current_scene
 	if world:
