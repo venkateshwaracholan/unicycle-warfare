@@ -1,0 +1,156 @@
+[gd_scene load_steps=7 format=3 uid="uid://bmain001"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/arena.gd" id="2_arena"]
+[ext_resource type="Script" path="res://scripts/hill_zone.gd" id="3_hill"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
+size = Vector2(1400, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall"]
+size = Vector2(20, 200)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hill"]
+radius = 80.0
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Arena" type="Node2D" parent="."]
+script = ExtResource("2_arena")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(640, 360)
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(640, 490)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="LeftWall" type="StaticBody2D" parent="."]
+position = Vector2(60, 460)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LeftWall"]
+shape = SubResource("RectangleShape2D_wall")
+
+[node name="RightWall" type="StaticBody2D" parent="."]
+position = Vector2(1220, 460)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RightWall"]
+shape = SubResource("RectangleShape2D_wall")
+
+[node name="HillZone" type="Area2D" parent="."]
+position = Vector2(640, 430)
+collision_layer = 16
+collision_mask = 2
+script = ExtResource("3_hill")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HillZone"]
+shape = SubResource("CircleShape2D_hill")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Title" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 8.0
+offset_right = 560.0
+offset_bottom = 40.0
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 22
+text = "UNICYCLE WARFARE"
+
+[node name="ModeLabel" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 34.0
+offset_right = 500.0
+offset_bottom = 56.0
+theme_override_colors/font_color = Color(0.7, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Deathmatch — Bridge"
+
+[node name="Message" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 54.0
+offset_right = 900.0
+offset_bottom = 78.0
+theme_override_colors/font_color = Color(0.85, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+text = "Loading..."
+
+[node name="Score" type="Label" parent="HUD"]
+offset_left = 420.0
+offset_top = 8.0
+offset_right = 900.0
+offset_bottom = 36.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "Score  P1: 0   P2: 0"
+horizontal_alignment = 1
+
+[node name="P1Health" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 80.0
+offset_right = 220.0
+offset_bottom = 106.0
+theme_override_colors/font_color = Color(0.95, 0.4, 0.4, 1)
+theme_override_font_sizes/font_size = 17
+text = "P1 HP: 100/100"
+
+[node name="P2Health" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 106.0
+offset_right = 220.0
+offset_bottom = 132.0
+theme_override_colors/font_color = Color(0.4, 0.65, 0.95, 1)
+theme_override_font_sizes/font_size = 17
+text = "P2 HP: 100/100"
+
+[node name="ControlsP1" type="Label" parent="HUD"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -130.0
+offset_right = 420.0
+offset_bottom = -16.0
+theme_override_colors/font_color = Color(0.95, 0.4, 0.4, 1)
+theme_override_font_sizes/font_size = 13
+text = "P1 — Q/W move wheel  E shoot
+Lean INTO recoil · ride over guns"
+
+[node name="ControlsP2" type="Label" parent="HUD"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -400.0
+offset_top = -130.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_colors/font_color = Color(0.4, 0.65, 0.95, 1)
+theme_override_font_sizes/font_size = 13
+text = "P2 — I/O balance & move  P shoot
+Lean INTO recoil · ride over guns
+Tab mode  M map"
+horizontal_alignment = 2
+
+[node name="Tagline" type="Label" parent="HUD"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -340.0
+offset_top = 684.0
+offset_right = 340.0
+offset_bottom = 712.0
+theme_override_colors/font_color = Color(1, 0.75, 0.35, 1)
+theme_override_font_sizes/font_size = 12
+text = "Unicycle balance · Q/W move · E shoot · repeat"
+horizontal_alignment = 1

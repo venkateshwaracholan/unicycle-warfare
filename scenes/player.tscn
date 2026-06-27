@@ -1,0 +1,68 @@
+[gd_scene load_steps=8 format=3 uid="uid://bplayer001"]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/character_visual.gd" id="2_visual"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_wheel"]
+friction = 1.1
+bounce = 0.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_wheel"]
+radius = 22.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(108, 80)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hitbox"]
+size = Vector2(24, 48)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_pickup_area"]
+radius = 50.0
+
+[node name="Player" type="Node2D"]
+script = ExtResource("1_player")
+
+[node name="Wheel" type="RigidBody2D" parent="."]
+collision_layer = 2
+collision_mask = 1
+mass = 3.0
+physics_material_override = SubResource("PhysicsMaterial_wheel")
+continuous_cd = 2
+lock_rotation = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Wheel"]
+position = Vector2(0, -22)
+shape = SubResource("CircleShape2D_wheel")
+
+[node name="BodyCollision" type="CollisionShape2D" parent="Wheel"]
+position = Vector2(0, -83)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="Visual" type="Node2D" parent="Wheel"]
+position = Vector2(0, -22)
+script = ExtResource("2_visual")
+
+[node name="Rider" type="Node2D" parent="Wheel"]
+position = Vector2(0, -60)
+
+[node name="Hitbox" type="Area2D" parent="Wheel/Rider"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Wheel/Rider/Hitbox"]
+position = Vector2(0, -8)
+shape = SubResource("RectangleShape2D_hitbox")
+
+[node name="Visual" type="Node2D" parent="Wheel/Rider"]
+script = ExtResource("2_visual")
+is_rider = true
+
+[node name="Muzzle" type="Marker2D" parent="Wheel/Rider"]
+position = Vector2(26, -22)
+
+[node name="PickupArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 8
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PickupArea"]
+shape = SubResource("CircleShape2D_pickup_area")
