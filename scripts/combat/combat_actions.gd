@@ -136,19 +136,27 @@ static func apply_explosion(
 	CombatVFX.explosion(center, radius)
 	for group_name in ["players", "enemies"]:
 		for node in world.get_tree().get_nodes_in_group(group_name):
-			if not is_instance_valid(node) or node == owner or node is not Node2D:
+			if not is_instance_valid(node) or node is not Node2D:
 				continue
 			var target: Node2D = node
-			if not can_hit(faction, target, owner):
+			var is_owner := target == owner
+			if not is_owner and not can_hit(faction, target, owner):
 				continue
-			var dist: float = target.global_position.distance_to(center)
+			var sample_pos := target.global_position
+			if target.has_method("get_blast_sample_position"):
+				sample_pos = target.call("get_blast_sample_position")
+			var offset := sample_pos - center
+			var dist: float = offset.length()
 			if dist >= radius:
 				continue
 			var falloff: float = 1.0 - dist / radius
-			if target.has_method("take_damage"):
+			var push_dir := offset.normalized() if offset.length_squared() > 4.0 else Vector2(0.65, -0.55).normalized()
+			if target.has_method("receive_explosion_blast"):
+				target.call("receive_explosion_blast", damage, falloff, knockback, push_dir, is_owner, owner)
+				continue
+			if not is_owner and target.has_method("take_damage"):
 				target.take_damage(int(damage * falloff), owner)
 			if target.has_method("apply_explosion_knockback"):
-				var push_dir: Vector2 = (target.global_position - center).normalized()
 				target.apply_explosion_knockback(push_dir * knockback * falloff)
 
 

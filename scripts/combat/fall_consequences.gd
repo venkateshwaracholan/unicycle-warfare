@@ -1,16 +1,127 @@
 class_name FallConsequences
 
+## Standard balance-fall rules — shared by arena and mission maps.
+
 const WEAPON_PICKUP_SCENE := preload("res://scenes/weapon_pickup.tscn")
 const BACKUP_WEAPON := WeaponDefs.Type.PISTOL
 const DROP_COOLDOWN := 1.8
 
-## Drop carried weapon on fall. Player keeps a backup sidearm.
-static func drop_weapon_from_player(player: Node2D, world: Node) -> void:
+# --- Soft fall vs hard crash ---
+const SOFT_DAMAGE := 5
+const CRASH_DAMAGE := 15
+
+# --- Hard crash (HP + bounce only — no weapon drop) ---
+const CRASH_BALANCE_VEL := 3.35
+const CRASH_SPEED := 25.0
+
+# --- Explosion tracking (fall backup) ---
+const EXPLOSION_METER_DECAY := 80.0
+
+# --- Ground impact bounce ---
+const BOUNCE_UP_SOFT := 110.0
+const BOUNCE_UP_CRASH := 200.0
+const BOUNCE_HORIZ_SOFT := 60.0
+const BOUNCE_HORIZ_CRASH := 125.0
+const BOUNCE_SPIN_SOFT := 1.5
+const BOUNCE_SPIN_CRASH := 3.0
+const BOUNCE_TIME_SOFT := 0.26
+const BOUNCE_TIME_CRASH := 0.36
+
+
+static func rules_hint() -> String:
+	return "soft fall −%d HP · blast knocks weapon loose" % SOFT_DAMAGE
+
+
+static func decay_explosion_meter(meter: float, delta: float) -> float:
+	return maxf(0.0, meter - EXPLOSION_METER_DECAY * delta)
+
+
+static func register_explosion_impact(meter: float, impulse_magnitude: float) -> float:
+	return maxf(meter, impulse_magnitude)
+
+
+static func should_drop_weapon_from_explosion(_explosion_meter: float) -> bool:
+	return _explosion_meter > 0.0
+
+
+static func is_hard_crash(balance_angular_vel: float, wheel_speed: float) -> bool:
+	if absf(balance_angular_vel) >= CRASH_BALANCE_VEL:
+		return true
+	if wheel_speed >= CRASH_SPEED:
+		return true
+	return false
+
+
+static func get_damage(severe: bool) -> int:
+	return CRASH_DAMAGE if severe else SOFT_DAMAGE
+
+
+static func get_bounce(severe: bool) -> Dictionary:
+	return {
+		"up": BOUNCE_UP_CRASH if severe else BOUNCE_UP_SOFT,
+		"horiz_base": BOUNCE_HORIZ_CRASH if severe else BOUNCE_HORIZ_SOFT,
+		"spin": BOUNCE_SPIN_CRASH if severe else BOUNCE_SPIN_SOFT,
+		"duration": BOUNCE_TIME_CRASH if severe else BOUNCE_TIME_SOFT,
+	}
+
+
+static func get_status_message(severe: bool, weapon_dropped: bool) -> String:
+	if weapon_dropped:
+		return "Blasted! Weapon knocked loose"
+	if severe:
+		return "Hard crash! −%d HP" % CRASH_DAMAGE
+	return "Tumbled! −%d HP · keep your weapon" % SOFT_DAMAGE
+
+
+## Drop weapon and fling it along the blast direction.
+static func drop_weapon_from_blast(player: Node2D, blast_impulse: Vector2) -> bool:
 	if not player.has_method("get_player_id"):
-		return
+		return false
 	var current := _read_weapon(player)
 	if _is_non_droppable(current):
-		return
+		return false
+	var world := player.get_tree().current_scene
+	if world == null:
+		return false
+
+	var muzzle: Node2D = player.get_node_or_null("Wheel/Pelvis/UpperBody/Muzzle")
+	var origin := muzzle.global_position if muzzle else player.global_position
+	var dir := blast_impulse.normalized() if blast_impulse.length_squared() > 1.0 else Vector2(0.8, -0.45).normalized()
+	var strength := clampf(blast_impulse.length() * 0.55, 120.0, 340.0)
+	var launch := dir * strength + Vector2(randf_range(-30.0, 30.0), randf_range(-320.0, -160.0))
+	spawn_weapon_pickup(world, origin, current, launch, player.get_player_id())
+	if player.has_method("set_weapon_type"):
+		player.set_weapon_type(BACKUP_WEAPON)
+	elif "weapon_type" in player:
+		player.weapon_type = BACKUP_WEAPON
+	return true
+
+
+static func try_drop_weapon_on_explosion(player: Node2D, blast_impulse: Vector2) -> bool:
+	return drop_weapon_from_blast(player, blast_impulse)
+
+
+static func resolve_fall(player: Node2D, is_crash: bool, drop_from_explosion: bool) -> Dictionary:
+	var dropped := false
+	var severe := is_crash or drop_from_explosion
+	if drop_from_explosion:
+		dropped = drop_weapon_from_player(player, player.get_tree().current_scene)
+	if player.has_method("apply_fall_bounce"):
+		player.call("apply_fall_bounce", get_bounce(severe))
+	return {
+		"damage": get_damage(severe),
+		"is_crash": severe,
+		"weapon_dropped": dropped,
+		"message": get_status_message(severe, dropped),
+	}
+
+
+static func drop_weapon_from_player(player: Node2D, world: Node) -> bool:
+	if world == null or not player.has_method("get_player_id"):
+		return false
+	var current := _read_weapon(player)
+	if _is_non_droppable(current):
+		return false
 
 	var muzzle: Node2D = player.get_node_or_null("Wheel/Pelvis/UpperBody/Muzzle")
 	var origin := muzzle.global_position if muzzle else player.global_position
@@ -26,6 +137,7 @@ static func drop_weapon_from_player(player: Node2D, world: Node) -> void:
 		player.set_weapon_type(BACKUP_WEAPON)
 	elif "weapon_type" in player:
 		player.weapon_type = BACKUP_WEAPON
+	return true
 
 
 static func _read_weapon(player: Node2D) -> WeaponDefs.Type:

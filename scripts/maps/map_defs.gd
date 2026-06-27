@@ -251,10 +251,13 @@ static func resolve_marker(map_id: MapId, marker_id: String, ground_surface_y: f
 
 static func enemy_spawn_positions(map_id: MapId, ground_surface_y: float, count: int) -> Array[Vector2]:
 	var map := get_map(map_id)
-	var zone: Dictionary = map.get("enemy_zone", {"x_min": 420.0, "x_max": 860.0})
+	var spawns: Array = map.get("spawn_points", [Vector2(220, 420), Vector2(1060, 420)])
+	var far_x := maxf(float(spawns[0].x), float(spawns[1].x))
+	var zone_min := far_x - 140.0
+	var zone_max := minf(far_x + 60.0, 1180.0)
 	var positions: Array[Vector2] = []
 	for i in count:
 		var t := float(i % 5) / 4.0 if count > 1 else 0.5
-		var x := lerpf(float(zone.x_min), float(zone.x_max), t)
+		var x := lerpf(zone_min, zone_max, t)
 		positions.append(Vector2(x, ground_surface_y))
 	return positions

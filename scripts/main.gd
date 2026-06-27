@@ -100,9 +100,10 @@ func _session_title() -> String:
 
 func _session_message() -> String:
 	var zoom_hint := " · scroll/+/- zoom · 1/2 face · 0 reset"
+	var fall_hint := " · " + FallConsequences.rules_hint()
 	if GameManager.is_play_mode():
-		return "Q/W pedal · A/D aim · E shoot · soft fall −5 HP · crash drops gun · Menu (top-right)" + zoom_hint
-	return "Q/W pedal · A/D aim · E shoot · J=loadout · Tab=mode · M=map · Menu (top-right)" + zoom_hint
+		return "Q/W pedal · A/D aim · E shoot" + fall_hint + " · Menu (top-right)" + zoom_hint
+	return "Q/W pedal · A/D aim · E shoot · J=loadout" + fall_hint + " · Tab=mode · M=map · Menu (top-right)" + zoom_hint
 
 
 func set_mission_message(text: String) -> void:
@@ -185,17 +186,9 @@ func _spawn_players() -> void:
 		_players.append(p)
 
 
-func _on_player_fell(_player: Node2D, is_crash: bool) -> void:
-	if is_crash:
-		if GameManager.is_play_mode():
-			message_label.text = "Hard crash! −15 HP · weapon dropped"
-		else:
-			message_label.text = "Hard crash! −15 HP"
-	else:
-		if GameManager.is_play_mode():
-			message_label.text = "Tumbled! −5 HP · keep your weapon"
-		else:
-			message_label.text = "Tumbled! −5 HP"
+func _on_player_fell(player: Node2D, _is_crash: bool) -> void:
+	if is_instance_valid(player) and player.last_fall_message != "":
+		message_label.text = player.last_fall_message
 
 
 func _respawn_all() -> void:
@@ -239,7 +232,7 @@ func _on_mode_changed(_mode: GameManager.Mode) -> void:
 			if GameManager.current_mode == GameManager.Mode.GUN_GAME:
 				p.weapon_type = GameManager.get_gun_game_weapon(p.player_id)
 			else:
-				p.weapon_type = WeaponDefs.Type.MINIGUN
+				p.weapon_type = WeaponDefs.Type.ROCKET
 	_update_hud()
 
 

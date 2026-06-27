@@ -31,18 +31,12 @@ const GET_UP_LEAN_RATE := 20.0
 const MG_RECOIL_BALANCE_RATE := 3.2
 const MG_GET_UP_RECOIL_BOOST := 3.5
 const BALANCE_DAMP := 1.0
-const DEFAULT_WEAPON := WeaponDefs.Type.MINIGUN
+const DEFAULT_WEAPON := WeaponDefs.Type.ROCKET
 const RECOIL_SCALE := 0.95
 const KNOCKBACK_SCALE := 0.4
 const REGEN_DELAY := 2.5
 const REGEN_RATE := 8.0
 const MAX_SPEED := 26.0
-const FALL_DAMAGE := 5
-const CRASH_DAMAGE := 15
-const CRASH_METER_THRESHOLD := 175.0
-const CRASH_METER_DECAY := 140.0
-const CRASH_BALANCE_VEL := 2.4
-const CRASH_SPEED := 19.0
 const ARENA_MIN_X := 100.0
 const ARENA_MAX_X := 1180.0
 
@@ -85,7 +79,9 @@ signal recovered_from_fall
 signal weapon_changed(weapon: WeaponDefs.Type)
 
 var _is_fallen := false
-var _crash_meter := 0.0
+var _explosion_impact_meter := 0.0
+var _ground_bounce_timer := 0.0
+var last_fall_message := ""
 
 func _ready() -> void:
 	add_to_group("players")
@@ -111,7 +107,7 @@ func _ready() -> void:
 	$Wheel/Pelvis/UpperBody/Visual.team_color = team_color
 	wheel_visual.wheel_style = CharacterVisual.WheelStyle.MILITARY if player_id == 1 else CharacterVisual.WheelStyle.BMX
 	if GameManager.is_play_mode():
-		set_weapon_type(WeaponDefs.Type.MINIGUN)
+		set_weapon_type(DEFAULT_WEAPON)
 	elif GameManager.current_mode == GameManager.Mode.GUN_GAME:
 		set_weapon_type(GameManager.get_gun_game_weapon(player_id))
 	elif weapon_type == WeaponDefs.Type.NONE:
@@ -175,7 +171,8 @@ func _physics_process(delta: float) -> void:
 
 	global_position = wheel.global_position
 	pickup_area.global_position = pelvis.global_position + Vector2(0, -20)
-	_crash_meter = maxf(0.0, _crash_meter - CRASH_METER_DECAY * delta)
+	_explosion_impact_meter = FallConsequences.decay_explosion_meter(_explosion_impact_meter, delta)
+	_ground_bounce_timer = maxf(0.0, _ground_bounce_timer - delta)
 
 	if state == State.RIDING and health < MAX_HEALTH and _time_since_hit >= REGEN_DELAY:
 		health = mini(MAX_HEALTH, health + int(REGEN_RATE * delta))
@@ -328,29 +325,35 @@ func _update_fall_state() -> void:
 		recovered_from_fall.emit()
 
 
-func register_crash_impulse(impulse_magnitude: float) -> void:
-	_crash_meter = maxf(_crash_meter, impulse_magnitude)
-
-
 func _classify_crash() -> bool:
-	if _crash_meter >= CRASH_METER_THRESHOLD:
-		return true
-	if absf(_rig.balance_angular_vel) >= CRASH_BALANCE_VEL:
-		return true
-	if wheel.linear_velocity.length() >= CRASH_SPEED:
-		return true
-	return false
+	return FallConsequences.is_hard_crash(
+		_rig.balance_angular_vel,
+		wheel.linear_velocity.length()
+	)
 
 
 func _apply_fall_consequence(is_crash: bool) -> void:
-	if is_crash:
-		_apply_fall_damage(CRASH_DAMAGE)
-		var world := get_tree().current_scene
-		if world and GameManager.is_play_mode():
-			FallConsequences.drop_weapon_from_player(self, world)
-	else:
-		_apply_fall_damage(FALL_DAMAGE)
-	_crash_meter = 0.0
+	var drop_from_explosion := FallConsequences.should_drop_weapon_from_explosion(_explosion_impact_meter)
+	var result := FallConsequences.resolve_fall(self, is_crash, drop_from_explosion)
+	_apply_fall_damage(int(result.get("damage", 0)))
+	_explosion_impact_meter = 0.0
+	last_fall_message = str(result.get("message", ""))
+
+
+func apply_fall_bounce(bounce: Dictionary) -> void:
+	if state != State.RIDING or _rig == null:
+		return
+	var fall_sign := signf(_rig.balance_angle)
+	if fall_sign == 0.0:
+		fall_sign = signf(_rig.facing)
+	var up: float = bounce.get("up", FallConsequences.BOUNCE_UP_SOFT)
+	var horiz_base: float = bounce.get("horiz_base", FallConsequences.BOUNCE_HORIZ_SOFT)
+	var spin: float = float(bounce.get("spin", FallConsequences.BOUNCE_SPIN_SOFT)) * -fall_sign
+	var horiz := -fall_sign * horiz_base + wheel.linear_velocity.x * 0.25
+	wheel.apply_central_impulse(Vector2(horiz, -up))
+	_rig.balance_angular_vel = spin
+	_ground_bounce_timer = float(bounce.get("duration", FallConsequences.BOUNCE_TIME_SOFT))
+	_rig.enforce_balance_limits()
 
 
 func _apply_fall_damage(amount: int) -> void:
@@ -400,12 +403,23 @@ func _is_grounded() -> bool:
 func _snap_to_ground() -> void:
 	if _rig == null:
 		return
-	var local_low := _rig.wheel_contact_local_y()
+	var floor_y := _ground_y - _rig.wheel_contact_local_y()
 	var pos := wheel.global_position
-	pos.y = _ground_y - local_low
-	wheel.global_position = pos
 	var vel := wheel.linear_velocity
-	vel.y = 0.0
+	var hopped := pos.y < floor_y - 3.0 and (_ground_bounce_timer > 0.0 or vel.y < -8.0)
+
+	if hopped:
+		wheel.linear_velocity = vel
+		return
+
+	if pos.y > floor_y:
+		pos.y = floor_y
+		vel.y = minf(vel.y, 0.0)
+	elif _ground_bounce_timer <= 0.0:
+		pos.y = floor_y
+		vel.y = 0.0
+
+	wheel.global_position = pos
 	wheel.linear_velocity = vel
 
 func _clamp_horizontal_speed() -> void:
@@ -569,7 +583,9 @@ func _finish_respawn() -> void:
 	wheel.linear_velocity = Vector2.ZERO
 	_rig.set_balance(0.0, 0.0)
 	_is_fallen = false
-	_crash_meter = 0.0
+	_explosion_impact_meter = 0.0
+	_ground_bounce_timer = 0.0
+	last_fall_message = ""
 	_prev_lean = 0.0
 	_sustained_balance_push = 0.0
 	_last_vel_x = 0.0
@@ -596,12 +612,56 @@ func _finish_respawn() -> void:
 func respawn_at_spawn() -> void:
 	_finish_respawn()
 
-func apply_explosion_knockback(impulse: Vector2) -> void:
+func get_blast_sample_position() -> Vector2:
+	return wheel.global_position if is_instance_valid(wheel) else global_position
+
+
+func receive_explosion_blast(
+	blast_damage: int,
+	falloff: float,
+	knockback: float,
+	push_dir: Vector2,
+	is_owner: bool,
+	owner: Node2D
+) -> void:
+	if state != State.RIDING:
+		return
+	if not is_owner:
+		take_damage(int(blast_damage * falloff), owner)
+	var impulse := push_dir * knockback * falloff
 	var scaled := impulse * KNOCKBACK_SCALE
 	wheel.apply_central_impulse(scaled)
-	register_crash_impulse(scaled.length())
-	if state == State.RIDING:
-		_rig.balance_angular_vel += scaled.x * 0.0012
+	_rig.balance_angular_vel += scaled.x * 0.0012
+	_explosion_impact_meter = FallConsequences.register_explosion_impact(
+		_explosion_impact_meter,
+		scaled.length()
+	)
+	if FallConsequences.try_drop_weapon_on_explosion(self, impulse):
+		last_fall_message = FallConsequences.get_status_message(true, true)
+		_notify_combat_message(last_fall_message)
+		_explosion_impact_meter = 0.0
+
+
+func apply_explosion_knockback(impulse: Vector2) -> void:
+	if state != State.RIDING:
+		return
+	var scaled := impulse * KNOCKBACK_SCALE
+	wheel.apply_central_impulse(scaled)
+	_rig.balance_angular_vel += scaled.x * 0.0012
+	_explosion_impact_meter = FallConsequences.register_explosion_impact(
+		_explosion_impact_meter,
+		scaled.length()
+	)
+	if FallConsequences.try_drop_weapon_on_explosion(self, impulse):
+		last_fall_message = FallConsequences.get_status_message(true, true)
+		_notify_combat_message(last_fall_message)
+		_explosion_impact_meter = 0.0
+
+
+func _notify_combat_message(text: String) -> void:
+	var root := get_tree().current_scene
+	if root and root.has_method("set_mission_message"):
+		root.call("set_mission_message", text)
 
 func apply_harpoon_pull(from: Node2D, hit_pos: Vector2) -> void:
 	var dir := (from.global_position - global_position).normalized()
