@@ -5,8 +5,8 @@ extends Node2D
 @export var team_color := Color.RED
 
 const SHORTS_COLOR := Color(0.45, 0.28, 0.16)
-const WHEEL_SPOKE_COUNT := 18
-const PROMINENT_SPOKE_COUNT := 3
+const WIRE_SPOKE_COUNT := 20
+const BLADE_SPOKE_COUNT := 3
 const Shapes := preload("res://scripts/draw_shapes.gd")
 
 func _draw() -> void:
@@ -19,56 +19,77 @@ func _draw_wheel() -> void:
 	var tire_r := 22.0
 	var tire_w := 5.0
 	var tire_inner := tire_r - tire_w * 0.5
-	# Fine spokes first, then three bold spokes every 120 degrees.
-	_draw_spokes(tire_inner)
-	_draw_prominent_spokes(tire_inner)
-	draw_arc(Vector2.ZERO, tire_inner - 0.8, 0, TAU, 48, Color(0.34, 0.34, 0.38), 1.2)
-	draw_arc(Vector2.ZERO, tire_r, 0, TAU, 48, Color(0.12, 0.12, 0.14), tire_w)
+	var rim_attach := tire_inner - 0.55
+	var rim_bed := tire_inner - 1.05
+
+	_draw_spoke_bed(rim_bed)
+	_draw_wire_spokes(rim_attach)
+	_draw_blade_spokes(rim_attach)
+	_draw_rim(tire_inner, tire_r, tire_w, rim_bed)
 	_draw_hub()
 
+func _draw_spoke_bed(radius: float) -> void:
+	draw_arc(Vector2.ZERO, radius, 0, TAU, 48, Color(0.18, 0.18, 0.21), 2.4)
+
+func _draw_rim(tire_inner: float, tire_r: float, tire_w: float, rim_bed: float) -> void:
+	draw_arc(Vector2.ZERO, rim_bed + 0.35, 0, TAU, 48, Color(0.30, 0.30, 0.34), 1.0)
+	draw_arc(Vector2.ZERO, tire_inner - 0.45, 0, TAU, 48, Color(0.58, 0.58, 0.62), 1.6)
+	draw_arc(Vector2.ZERO, tire_r, 0, TAU, 48, Color(0.10, 0.10, 0.12), tire_w)
+	draw_arc(Vector2.ZERO, tire_r - tire_w * 0.35, -PI * 0.42, PI * 0.12, 10, Color(0.20, 0.20, 0.22), 1.1)
+
 func _draw_hub() -> void:
-	draw_circle(Vector2.ZERO, 7.0, Color(0.28, 0.28, 0.32))
-	draw_arc(Vector2.ZERO, 6.2, 0, TAU, 24, Color(0.40, 0.40, 0.44), 1.4)
-	draw_circle(Vector2.ZERO, 4.8, Color(0.22, 0.22, 0.26))
-	draw_circle(Vector2.ZERO, 3.2, Color(0.48, 0.48, 0.52))
+	draw_circle(Vector2.ZERO, 7.2, Color(0.24, 0.24, 0.28))
+	draw_arc(Vector2.ZERO, 6.4, 0, TAU, 28, Color(0.42, 0.42, 0.46), 1.6)
+	for i in BLADE_SPOKE_COUNT:
+		var dir := Vector2(cos(_blade_spoke_angle(i)), sin(_blade_spoke_angle(i)))
+		draw_circle(dir * 5.8, 1.1, Color(0.14, 0.14, 0.16))
+	draw_circle(Vector2.ZERO, 4.6, Color(0.16, 0.16, 0.19))
+	draw_circle(Vector2.ZERO, 2.8, Color(0.54, 0.54, 0.58))
+	draw_circle(Vector2.ZERO, 1.2, Color(0.72, 0.72, 0.76))
 
-func _draw_spokes(tire_inner: float) -> void:
-	# Traditional radial spokes: straight wires from hub flange to rim.
-	const HUB_ATTACH := 5.5
-	var rim_attach := tire_inner - 0.6
-	var shadow := Color(0.32, 0.32, 0.36)
-	var highlight := Color(0.56, 0.56, 0.60)
-	var nipple := Color(0.50, 0.50, 0.54)
+func _draw_wire_spokes(rim_attach: float) -> void:
+	const HUB_ATTACH := 5.6
+	var front := Color(0.50, 0.50, 0.54)
+	var rear := Color(0.36, 0.36, 0.40)
+	var glint := Color(0.70, 0.70, 0.74)
+	var nipple := Color(0.46, 0.46, 0.50)
 
-	for i in WHEEL_SPOKE_COUNT:
-		var angle := _spoke_angle(i)
+	for i in WIRE_SPOKE_COUNT:
+		var angle := _wire_spoke_angle(i)
 		var dir := Vector2(cos(angle), sin(angle))
 		var from := dir * HUB_ATTACH
 		var to := dir * rim_attach
-		Shapes.capsule(self, from, to, 1.2, shadow)
-		Shapes.capsule(self, from, to, 0.6, highlight)
-		draw_circle(to, 0.8, nipple)
+		var body := front if i % 2 == 0 else rear
+		Shapes.capsule(self, from, to, 1.05, body)
+		var glint_to := from.lerp(to, 0.88)
+		Shapes.capsule(self, from.lerp(to, 0.08), glint_to, 0.45, glint)
+		draw_circle(to, 0.75, nipple.darkened(0.08 if i % 2 else 0.0))
 
-func _spoke_angle(index: int) -> float:
-	return float(index) / float(WHEEL_SPOKE_COUNT) * TAU - PI * 0.5
+func _wire_spoke_angle(index: int) -> float:
+	return float(index) / float(WIRE_SPOKE_COUNT) * TAU - PI * 0.5
 
-func _prominent_spoke_angle(index: int) -> float:
-	return float(index) / float(PROMINENT_SPOKE_COUNT) * TAU - PI * 0.5
+func _blade_spoke_angle(index: int) -> float:
+	return float(index) / float(BLADE_SPOKE_COUNT) * TAU - PI * 0.5
 
-func _draw_prominent_spokes(tire_inner: float) -> void:
-	const HUB_ATTACH := 5.5
-	var rim_attach := tire_inner - 0.6
-	var shadow := Color(0.10, 0.10, 0.12)
-	var highlight := Color(0.28, 0.28, 0.32)
-	var nipple := Color(0.18, 0.18, 0.22)
+func _draw_blade_spokes(rim_attach: float) -> void:
+	const HUB_ATTACH := 5.2
+	var shadow := Color(0.06, 0.06, 0.08)
+	var body := Color(0.11, 0.11, 0.13)
+	var edge := Color(0.34, 0.34, 0.38)
+	var rim_boss := Color(0.08, 0.08, 0.10)
+	var rim_ring := Color(0.42, 0.42, 0.46)
 
-	for i in PROMINENT_SPOKE_COUNT:
-		var dir := Vector2(cos(_prominent_spoke_angle(i)), sin(_prominent_spoke_angle(i)))
+	for i in BLADE_SPOKE_COUNT:
+		var dir := Vector2(cos(_blade_spoke_angle(i)), sin(_blade_spoke_angle(i)))
 		var from := dir * HUB_ATTACH
 		var to := dir * rim_attach
-		Shapes.capsule(self, from, to, 4.2, shadow)
-		Shapes.capsule(self, from, to, 2.4, highlight)
-		draw_circle(to, 1.4, nipple)
+		var light := Vector2(-dir.y, dir.x) * 0.55
+		Shapes.capsule(self, from + dir * 0.25 + light * -0.15, to + light * -0.15, 5.2, shadow)
+		Shapes.capsule(self, from, to, 4.6, body)
+		Shapes.capsule(self, from + light * 0.22, to + light * 0.22, 1.35, edge)
+		draw_circle(from, 1.5, body.lightened(0.06))
+		draw_circle(to, 1.55, rim_boss)
+		draw_arc(to, 1.35, 0, TAU, 12, rim_ring, 0.8)
 
 func _draw_rider() -> void:
 	var hub_local := _hub_local()

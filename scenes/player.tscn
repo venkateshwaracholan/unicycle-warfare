@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://bplayer001"]
+[gd_scene load_steps=13 format=3 uid="uid://bplayer001"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/character_visual.gd" id="2_visual"]
@@ -15,8 +15,21 @@ radius = 22.0
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(108, 80)
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_hitbox"]
-size = Vector2(24, 48)
+[sub_resource type="CircleShape2D" id="CircleShape2D_head"]
+radius = 14.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_torso"]
+size = Vector2(26, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_arm"]
+size = Vector2(22, 10)
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_limb"]
+radius = 4.5
+height = 18.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_foot"]
+radius = 7.0
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_pickup_area"]
 radius = 50.0
@@ -47,6 +60,19 @@ script = ExtResource("4_leg")
 pedal_index = 1
 draw_behind = true
 
+[node name="LegHitbox" type="Area2D" parent="Wheel/LegBack"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="Thigh" type="CollisionShape2D" parent="Wheel/LegBack/LegHitbox"]
+shape = SubResource("CapsuleShape2D_limb")
+
+[node name="Shin" type="CollisionShape2D" parent="Wheel/LegBack/LegHitbox"]
+shape = SubResource("CapsuleShape2D_limb")
+
+[node name="Foot" type="CollisionShape2D" parent="Wheel/LegBack/LegHitbox"]
+shape = SubResource("CircleShape2D_foot")
+
 [node name="Visual" type="Node2D" parent="Wheel"]
 z_index = 1
 position = Vector2(0, -22)
@@ -70,13 +96,34 @@ z_index = 1
 script = ExtResource("4_leg")
 pedal_index = 0
 
+[node name="LegHitbox" type="Area2D" parent="Wheel/Rider/LegFront"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="Thigh" type="CollisionShape2D" parent="Wheel/Rider/LegFront/LegHitbox"]
+shape = SubResource("CapsuleShape2D_limb")
+
+[node name="Shin" type="CollisionShape2D" parent="Wheel/Rider/LegFront/LegHitbox"]
+shape = SubResource("CapsuleShape2D_limb")
+
+[node name="Foot" type="CollisionShape2D" parent="Wheel/Rider/LegFront/LegHitbox"]
+shape = SubResource("CircleShape2D_foot")
+
 [node name="Hitbox" type="Area2D" parent="Wheel/Rider"]
 collision_layer = 2
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Wheel/Rider/Hitbox"]
-position = Vector2(0, -8)
-shape = SubResource("RectangleShape2D_hitbox")
+[node name="Head" type="CollisionShape2D" parent="Wheel/Rider/Hitbox"]
+position = Vector2(0, -46)
+shape = SubResource("CircleShape2D_head")
+
+[node name="Torso" type="CollisionShape2D" parent="Wheel/Rider/Hitbox"]
+position = Vector2(0, -11)
+shape = SubResource("RectangleShape2D_torso")
+
+[node name="Arm" type="CollisionShape2D" parent="Wheel/Rider/Hitbox"]
+position = Vector2(17, -19)
+shape = SubResource("RectangleShape2D_arm")
 
 [node name="Muzzle" type="Marker2D" parent="Wheel/Rider"]
 position = Vector2(26, -22)

@@ -49,7 +49,7 @@ func _on_body_entered(body: Node) -> void:
 	queue_free()
 
 func _on_area_entered(area: Area2D) -> void:
-	_on_body_entered(area.get_parent())
+	_on_body_entered(area)
 
 func _explode() -> void:
 	var radius := 85.0
