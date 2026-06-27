@@ -6,6 +6,7 @@ const PLAY_CONTROLLER_SCRIPT := preload("res://scripts/modes/play_mode_controlle
 const WeaponLoadoutPanel := preload("res://scripts/ui/weapon_loadout_panel.gd")
 
 @onready var arena: Arena = $Arena
+@onready var camera: Camera2D = $Camera2D
 @onready var hill_zone: Area2D = $HillZone
 @onready var ground: StaticBody2D = $Ground
 @onready var left_wall: StaticBody2D = $LeftWall
@@ -118,7 +119,7 @@ func _session_message() -> String:
 	var zoom_hint := " · scroll/+/- zoom · 1/2 face · 0 reset"
 	var fall_hint := " · " + FallConsequences.rules_hint()
 	if GameManager.is_play_mode():
-		return "Q/W pedal · A/D aim · E shoot" + fall_hint + " · Retry/Menu (top-right)" + zoom_hint
+		return "Q/W pedal · A/D aim · E shoot" + fall_hint + " · Ride east through the mission · Retry/Menu (top-right)" + zoom_hint
 	return "Q/W pedal · A/D aim · E shoot · J=loadout" + fall_hint + " · Tab=mode · M=map · Retry/Menu (top-right)" + zoom_hint
 
 
@@ -154,11 +155,29 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _rebuild_arena() -> void:
 	arena._configure_map()
-	var gy := arena.ground_y
-	ground.position = Vector2(640, gy)
-	left_wall.position = Vector2(60, gy - 30)
-	right_wall.position = Vector2(1220, gy - 30)
-	hill_zone.position = Vector2(640, gy - 60)
+	if GameManager.is_play_mode():
+		ground.visible = false
+		ground.set_collision_layer_value(1, false)
+		left_wall.visible = false
+		left_wall.set_collision_layer_value(1, false)
+		right_wall.visible = false
+		right_wall.set_collision_layer_value(1, false)
+		if camera.has_method("configure_mission"):
+			camera.configure_mission(arena.world_left(), arena.world_right())
+	else:
+		ground.visible = true
+		ground.set_collision_layer_value(1, true)
+		left_wall.visible = true
+		left_wall.set_collision_layer_value(1, true)
+		right_wall.visible = true
+		right_wall.set_collision_layer_value(1, true)
+		if camera.has_method("configure_arena"):
+			camera.configure_arena()
+		var gy := arena.ground_y
+		ground.position = Vector2(640, gy)
+		left_wall.position = Vector2(60, gy - 30)
+		right_wall.position = Vector2(1220, gy - 30)
+	hill_zone.position = Vector2(640, arena.ground_y - 60)
 	var tagline := arena.get_biome_tagline()
 	var map_line := arena.get_map_name()
 	if not tagline.is_empty():

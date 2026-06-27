@@ -33,7 +33,10 @@ func _on_phase_started(phase: int) -> void:
 func _spawn_waves(waves: Array) -> void:
 	if waves.is_empty() or _arena == null or _world == null:
 		return
-	for wave in waves:
+	for wave_variant in waves:
+		if not wave_variant is Dictionary:
+			continue
+		var wave: Dictionary = wave_variant
 		var type: EnemyDefs.Type = wave.get("type", EnemyDefs.Type.PISTOL_GUY)
 		var count: int = DifficultyScaling.enemy_count(int(wave.get("count", 1)))
 		for i in count:
@@ -43,11 +46,14 @@ func _spawn_waves(waves: Array) -> void:
 func _spawn_default_wave() -> void:
 	var count := DifficultyScaling.enemy_count(3)
 	for i in count:
-		var type := EnemyDefs.Type.PISTOL_GUY if i % 2 == 0 else EnemyDefs.Type.SHOTGUN_GUY
+		var type: EnemyDefs.Type = EnemyDefs.Type.PISTOL_GUY if i % 2 == 0 else EnemyDefs.Type.SHOTGUN_GUY
 		_spawn_enemy(type, _next_spawn_position())
 		_spawn_index += 1
 
 func _next_spawn_position() -> Vector2:
+	if _arena.mission_level and _arena.level != null:
+		var positions := _arena.level.enemy_spawn_positions(maxi(_spawn_index + 1, 5), _spawn_index)
+		return positions[_spawn_index % positions.size()]
 	var positions := MapDefs.enemy_spawn_positions(
 		_arena.map_id,
 		_arena.ground_surface_y(),

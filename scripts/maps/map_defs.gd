@@ -1,6 +1,6 @@
 class_name MapDefs
 
-## Reusable map data — layout, markers, spawn zones. Maps are content; missions pick objectives.
+## Reusable map data — biomes, legacy arena markers, and mission level layouts.
 
 enum MapId {
 	DESERT,

@@ -69,16 +69,12 @@ func _clear_drop_in_message() -> void:
 		return
 	var obj := MissionManager.current_objective()
 	if obj.is_empty():
-		_main.set_mission_message("Complete the objective. Extract to earn rewards.")
+		_main.set_mission_message("Ride east through the mission zone. Complete objectives and extract.")
 	else:
 		_main.set_mission_message(obj.get("label", "Complete the objective."))
 
 func _resolve_marker(marker_id: String) -> Vector2:
-	return MapDefs.resolve_marker(
-		MissionManager.get_map_id(),
-		marker_id,
-		_arena.ground_surface_y()
-	)
+	return _arena.resolve_marker(marker_id)
 
 func _refresh_marker() -> void:
 	var obj := MissionManager.current_objective()
@@ -133,7 +129,7 @@ func _handle_mission_interactions() -> void:
 func _first_player() -> Node2D:
 	for child in _main.get_children():
 		if child.is_in_group("players") and child is Node2D:
-			return child
+			return child as Node2D
 	return null
 
 func _on_phase_started(_phase: int) -> void:

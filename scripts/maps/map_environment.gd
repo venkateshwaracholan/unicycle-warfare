@@ -7,6 +7,7 @@ var map_id: MapDefs.MapId = MapDefs.MapId.DESERT
 var scroll_offset := 0.0
 
 var _hazards: Array = []
+var _hazards_use_world_x := false
 var _time := 0.0
 
 
@@ -14,9 +15,14 @@ func _ready() -> void:
 	add_to_group("map_environment")
 
 
-func configure(mid: MapDefs.MapId) -> void:
+func configure(mid: MapDefs.MapId, custom_hazards: Variant = null) -> void:
 	map_id = mid
-	_hazards = BiomeCatalog.get_hazards(mid)
+	if custom_hazards is Array and not custom_hazards.is_empty():
+		_hazards = custom_hazards
+		_hazards_use_world_x = true
+	else:
+		_hazards = BiomeCatalog.get_hazards(mid)
+		_hazards_use_world_x = false
 	scroll_offset = 0.0
 	_time = 0.0
 
@@ -78,8 +84,14 @@ static func find_in_tree(tree: SceneTree) -> MapEnvironment:
 
 
 func _in_zone(h: Dictionary, world_x: float) -> bool:
-	var x0 := BiomeCatalog.play_x(float(h.get("x0", 0.0)))
-	var x1 := BiomeCatalog.play_x(float(h.get("x1", 1.0)))
+	var x0: float
+	var x1: float
+	if _hazards_use_world_x:
+		x0 = float(h.get("x0", 0.0))
+		x1 = float(h.get("x1", 1.0))
+	else:
+		x0 = BiomeCatalog.play_x(float(h.get("x0", 0.0)))
+		x1 = BiomeCatalog.play_x(float(h.get("x1", 1.0)))
 	return world_x >= minf(x0, x1) and world_x <= maxf(x0, x1)
 
 

@@ -87,9 +87,12 @@ func _ready() -> void:
 	_weapon_user = WeaponUser.new(self, Faction.Id.PLAYER)
 	_setup_input()
 	global_position = spawn_position
-	var arena := get_tree().get_first_node_in_group("arena")
+	var arena := get_tree().get_first_node_in_group("arena") as Arena
 	if arena:
-		_ground_y = arena.ground_surface_y()
+		if arena.mission_level:
+			_ground_y = arena.ground_surface_at(spawn_position.x)
+		else:
+			_ground_y = arena.ground_surface_y()
 	wheel.global_position = _wheel_spawn_pos()
 	_last_wheel_x = wheel.global_position.x
 	_rig = UnicycleRig.bind(wheel)
@@ -165,6 +168,23 @@ func on_weapon_pickup(_weapon: WeaponDefs.Type) -> void:
 
 func _wheel_spawn_pos() -> Vector2:
 	return Vector2(spawn_position.x, _ground_y)
+
+
+func _refresh_ground_height() -> void:
+	var arena := get_tree().get_first_node_in_group("arena") as Arena
+	if arena == null:
+		return
+	if arena.mission_level:
+		_ground_y = arena.ground_surface_at(wheel.global_position.x)
+	else:
+		_ground_y = arena.ground_surface_y()
+
+
+func _arena_bounds() -> Vector2:
+	var arena := get_tree().get_first_node_in_group("arena") as Arena
+	if arena and arena.mission_level:
+		return Vector2(arena.world_left() + 20.0, arena.world_right() - 20.0)
+	return Vector2(ARENA_MIN_X, ARENA_MAX_X)
 
 func _physics_process(delta: float) -> void:
 	_weapon_user.tick(delta)
@@ -445,16 +465,18 @@ func _stabilize_physics(delta: float) -> void:
 	vel = wheel.linear_velocity
 
 	if state == State.RIDING:
+		_refresh_ground_height()
 		_snap_to_ground()
 
 	pos = wheel.global_position
-	if pos.x < ARENA_MIN_X:
-		pos.x = ARENA_MIN_X
+	var bounds := _arena_bounds()
+	if pos.x < bounds.x:
+		pos.x = bounds.x
 		wheel.global_position = pos
 		if wheel.linear_velocity.x < 0.0:
 			wheel.linear_velocity.x = 0.0
-	elif pos.x > ARENA_MAX_X:
-		pos.x = ARENA_MAX_X
+	elif pos.x > bounds.y:
+		pos.x = bounds.y
 		wheel.global_position = pos
 		if wheel.linear_velocity.x > 0.0:
 			wheel.linear_velocity.x = 0.0
@@ -598,6 +620,7 @@ func _finish_respawn() -> void:
 		leg_back.reset_pose()
 	if is_instance_valid(leg_front) and leg_front.has_method("reset_pose"):
 		leg_front.reset_pose()
+	_refresh_ground_height()
 	_snap_to_ground()
 	if GameManager.is_play_mode():
 		set_weapon_type(WeaponDefs.Type.PISTOL)
