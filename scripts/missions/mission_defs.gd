@@ -77,7 +77,8 @@ const MISSIONS := {
 			{"type": ObjectiveType.EXTRACT, "label": "Get out", "marker": "extract"},
 		],
 		"enemy_waves": [
-			{"type": EnemyDefs.Type.SHOTGUN_GUY, "count": 2},
+			{"type": EnemyDefs.Type.SHOTGUN_GUY, "count": 1},
+			{"type": EnemyDefs.Type.ROCKET_GUY, "count": 1},
 		],
 	},
 	"factory_survive_waves": {

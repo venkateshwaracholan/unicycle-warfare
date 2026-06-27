@@ -6,8 +6,6 @@ enum State { RIDING, RESPAWNING }
 @export var team_color := Color(0.9, 0.25, 0.25)
 @export var spawn_position := Vector2.ZERO
 
-const BULLET_SCENE := preload("res://scenes/bullet.tscn")
-const GRENADE_SCENE := preload("res://scenes/grenade.tscn")
 const WEAPON_PICKUP_SCENE := preload("res://scenes/weapon_pickup.tscn")
 const Shapes := preload("res://scripts/draw_shapes.gd")
 
@@ -43,7 +41,7 @@ const RIDER_GROUND_PROBES := [Vector2(0, 14), Vector2(-10, 14), Vector2(10, 14)]
 var health := MAX_HEALTH
 var state := State.RIDING
 var weapon_type: WeaponDefs.Type = WeaponDefs.Type.NONE
-var _fire_cooldown := 0.0
+var _weapon_user: WeaponUser
 var _aim_angle := 0.0
 var _current_lean := 0.0
 var _wheel_spin := 0.0
@@ -81,6 +79,7 @@ var _is_fallen := false
 
 func _ready() -> void:
 	add_to_group("players")
+	_weapon_user = WeaponUser.new(self, Faction.Id.PLAYER)
 	_setup_input()
 	global_position = spawn_position
 	var arena := get_tree().get_first_node_in_group("arena")
@@ -97,12 +96,13 @@ func _ready() -> void:
 	wheel.body_entered.connect(_on_wheel_body_entered)
 	$Wheel/Rider/Visual.team_color = team_color
 	if GameManager.is_play_mode():
-		weapon_type = WeaponDefs.Type.MINIGUN
+		set_weapon_type(WeaponDefs.Type.MINIGUN)
 	elif GameManager.current_mode == GameManager.Mode.GUN_GAME:
-		weapon_type = GameManager.get_gun_game_weapon(player_id)
+		set_weapon_type(GameManager.get_gun_game_weapon(player_id))
 	elif weapon_type == WeaponDefs.Type.NONE:
-		weapon_type = DEFAULT_WEAPON
-	_emit_weapon_changed()
+		set_weapon_type(DEFAULT_WEAPON)
+	else:
+		_emit_weapon_changed()
 	health_changed.emit(health, MAX_HEALTH)
 
 func _setup_input() -> void:
@@ -118,11 +118,33 @@ func _setup_input() -> void:
 func get_player_id() -> int:
 	return player_id
 
+func get_faction() -> Faction.Id:
+	return Faction.Id.PLAYER
+
+func get_weapon_type() -> WeaponDefs.Type:
+	return weapon_type
+
+func set_weapon_type(weapon: WeaponDefs.Type) -> void:
+	_weapon_user.set_weapon_type(weapon)
+	_emit_weapon_changed()
+
+func get_weapon_muzzle_global() -> Vector2:
+	return muzzle.global_position
+
+func can_pickup_loot(loot: Node) -> bool:
+	if loot.has_method("get_dropped_by") and loot.get_dropped_by() == player_id:
+		if loot.has_method("get_drop_age") and loot.get_drop_age() < FallConsequences.DROP_COOLDOWN:
+			return false
+	return true
+
+func on_weapon_pickup(_weapon: WeaponDefs.Type) -> void:
+	pass
+
 func _wheel_spawn_pos() -> Vector2:
 	return Vector2(spawn_position.x, _ground_y)
 
 func _physics_process(delta: float) -> void:
-	_fire_cooldown = maxf(_fire_cooldown - delta, 0.0)
+	_weapon_user.tick(delta)
 	_time_since_hit += delta
 
 	global_position = wheel.global_position
@@ -404,79 +426,30 @@ func _try_pickup_weapon() -> bool:
 	for area in pickup_area.get_overlapping_areas():
 		if not area.has_method("get_weapon_type"):
 			continue
-		if area.has_method("get_dropped_by") and area.get_dropped_by() == player_id:
-			if area.has_method("get_drop_age") and area.get_drop_age() < FallConsequences.DROP_COOLDOWN:
-				continue
-		weapon_type = area.get_weapon_type()
-		_emit_weapon_changed()
+		if not can_pickup_loot(area):
+			continue
+		set_weapon_type(area.get_weapon_type())
 		area.queue_free()
 		return true
-	return false
+	return _weapon_user.try_pickup_nearby()
 
 
 func _emit_weapon_changed() -> void:
 	weapon_changed.emit(weapon_type)
 
 func _try_attack() -> void:
-	if _fire_cooldown > 0.0:
+	var aim_dir := Vector2.RIGHT.rotated(_aim_angle)
+	var result := _weapon_user.try_attack(aim_dir)
+	if not result.get("fired", false):
 		return
-	var data := WeaponDefs.get_data(weapon_type)
-	match data["category"]:
+	var data := WeaponDefs.get_data(result.get("weapon_type", weapon_type))
+	match result.get("category"):
 		WeaponDefs.Category.MELEE:
-			_do_melee(data)
-		WeaponDefs.Category.THROWABLE:
-			_throw_grenade(data)
-		WeaponDefs.Category.RANGED:
-			if weapon_type == WeaponDefs.Type.NONE:
-				_do_melee(data)
-			else:
-				_do_ranged(data)
-
-func _do_ranged(data: Dictionary) -> void:
-	_fire_cooldown = data["fire_rate"]
-	var base_dir := Vector2.RIGHT.rotated(_aim_angle)
-	var pellets: int = data["pellets"]
-	for i in pellets:
-		var dir := base_dir.rotated(randf_range(-data["spread"], data["spread"]))
-		var bullet := BULLET_SCENE.instantiate()
-		bullet.global_position = muzzle.global_position
-		bullet.velocity = dir * data["bullet_speed"]
-		bullet.damage = data["damage"]
-		bullet.owner_player = self
-		bullet.is_rocket = data.get("explosive", false)
-		bullet.is_harpoon = data.get("harpoon", false)
-		get_tree().current_scene.add_child(bullet)
-	_apply_recoil(base_dir, data)
-
-func _do_melee(data: Dictionary) -> void:
-	_fire_cooldown = data["fire_rate"]
-	var attack_dir := Vector2.RIGHT.rotated(_aim_angle)
-	var attack_range: float = data.get("melee_range", 55.0)
-	var origin := muzzle.global_position
-	for node in get_tree().get_nodes_in_group("players"):
-		if node == self or not is_instance_valid(node) or node is not Node2D:
-			continue
-		var target: Node2D = node
-		var to_target: Vector2 = target.global_position - origin
-		if to_target.length() > attack_range:
-			continue
-		if to_target.normalized().dot(attack_dir) > 0.25:
-			target.take_damage(data["damage"], self)
-			if data.has("knockback"):
-				target.apply_explosion_knockback(attack_dir * data["knockback"])
-	wheel.apply_central_impulse(attack_dir * 80.0)
-	_apply_recoil(-attack_dir, data)
-
-func _throw_grenade(data: Dictionary) -> void:
-	_fire_cooldown = data["fire_rate"]
-	var dir := Vector2.RIGHT.rotated(_aim_angle)
-	var nade := GRENADE_SCENE.instantiate()
-	nade.global_position = muzzle.global_position
-	nade.velocity = dir * data["bullet_speed"] + Vector2(0, -180)
-	nade.damage = data["damage"]
-	nade.owner_player = self
-	get_tree().current_scene.add_child(nade)
-	_apply_recoil(dir, data)
+			if result.get("melee_lunge", false):
+				wheel.apply_central_impulse(aim_dir * 80.0)
+			_apply_recoil(-aim_dir, data)
+		WeaponDefs.Category.THROWABLE, WeaponDefs.Category.RANGED:
+			_apply_recoil(aim_dir, data)
 
 func _apply_recoil(aim_dir: Vector2, data: Dictionary) -> void:
 	var recoil_dir := -aim_dir.normalized()
@@ -564,12 +537,13 @@ func _finish_respawn() -> void:
 		leg_front.reset_pose()
 	_snap_to_ground()
 	if GameManager.is_play_mode():
-		weapon_type = WeaponDefs.Type.PISTOL
+		set_weapon_type(WeaponDefs.Type.PISTOL)
 	elif GameManager.current_mode == GameManager.Mode.GUN_GAME:
-		weapon_type = GameManager.get_gun_game_weapon(player_id)
+		set_weapon_type(GameManager.get_gun_game_weapon(player_id))
 	elif weapon_type == WeaponDefs.Type.NONE:
-		weapon_type = DEFAULT_WEAPON
-	_emit_weapon_changed()
+		set_weapon_type(DEFAULT_WEAPON)
+	else:
+		_emit_weapon_changed()
 	state = State.RIDING
 	health_changed.emit(health, MAX_HEALTH)
 

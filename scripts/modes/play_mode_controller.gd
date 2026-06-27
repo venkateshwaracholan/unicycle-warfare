@@ -51,7 +51,6 @@ func setup(main: Node2D, hud: CanvasLayer) -> void:
 	add_child(_enemy_spawner)
 	_enemy_spawner.spawn_mission_enemies(_arena, _main)
 
-	_connect_players()
 	_refresh_marker()
 	_show_drop_in()
 
@@ -92,14 +91,6 @@ func _refresh_marker() -> void:
 		_active_marker_kind = marker_id
 	if _marker_overlay and _marker_overlay.has_method("set_marker"):
 		_marker_overlay.call("set_marker", _active_marker_pos, _active_marker_kind, obj)
-
-func _connect_players() -> void:
-	for child in _main.get_children():
-		if not child.is_in_group("players"):
-			continue
-		if child.has_signal("fell_over"):
-			if not child.fell_over.is_connected(_on_player_fell):
-				child.fell_over.connect(_on_player_fell.bind(child))
 
 func _process(_delta: float) -> void:
 	if not is_instance_valid(_main):
@@ -144,11 +135,6 @@ func _first_player() -> Node2D:
 		if child.is_in_group("players") and child is Node2D:
 			return child
 	return null
-
-func _on_player_fell(player: Node2D) -> void:
-	if not is_instance_valid(player):
-		return
-	FallConsequences.drop_weapon_from_player(player, _main)
 
 func _on_phase_started(_phase: int) -> void:
 	_boss_spawned = false

@@ -8,7 +8,7 @@ const DROP_COOLDOWN := 1.8
 static func drop_weapon_from_player(player: Node2D, world: Node) -> void:
 	if not player.has_method("get_player_id"):
 		return
-	var current: WeaponDefs.Type = player.weapon_type
+	var current: WeaponDefs.Type = player.get_weapon_type() if player.has_method("get_weapon_type") else player.weapon_type
 	if current == WeaponDefs.Type.NONE or current == BACKUP_WEAPON:
 		return
 
@@ -20,7 +20,10 @@ static func drop_weapon_from_player(player: Node2D, world: Node) -> void:
 
 	var velocity := Vector2(facing * randf_range(60.0, 140.0), randf_range(-160.0, -60.0))
 	spawn_weapon_pickup(world, origin, current, velocity, player.get_player_id())
-	player.weapon_type = BACKUP_WEAPON
+	if player.has_method("set_weapon_type"):
+		player.set_weapon_type(BACKUP_WEAPON)
+	elif "weapon_type" in player:
+		player.weapon_type = BACKUP_WEAPON
 
 
 static func spawn_weapon_pickup(

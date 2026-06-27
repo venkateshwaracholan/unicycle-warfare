@@ -191,8 +191,16 @@ func _spawn_players() -> void:
 		p.spawn_position = spawns[i]
 		p.health_changed.connect(_on_health_changed.bind(i + 1))
 		p.eliminated.connect(_on_player_eliminated)
+		if p.has_signal("fell_over") and not p.fell_over.is_connected(_on_player_fell):
+			p.fell_over.connect(_on_player_fell.bind(p))
 		add_child(p)
 		_players.append(p)
+
+
+func _on_player_fell(player: Node2D) -> void:
+	if not is_instance_valid(player):
+		return
+	FallConsequences.drop_weapon_from_player(player, self)
 
 
 func _respawn_all() -> void:

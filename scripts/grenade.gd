@@ -3,7 +3,8 @@ extends Area2D
 var velocity := Vector2.ZERO
 var damage := 10
 var fuse := 1.6
-var owner_player: Node2D = null
+var owner_node: Node2D = null
+var faction: Faction.Id = Faction.Id.NEUTRAL
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
@@ -19,18 +20,9 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 func _explode() -> void:
-	var radius := 90.0
-	for node in get_tree().get_nodes_in_group("players"):
-		if not is_instance_valid(node) or node is not Node2D:
-			continue
-		var player: Node2D = node
-		var dist: float = player.global_position.distance_to(global_position)
-		if dist < radius:
-			var falloff: float = 1.0 - dist / radius
-			player.take_damage(int(damage * falloff), owner_player)
-			if player.has_method("apply_explosion_knockback"):
-				var dir: Vector2 = (player.global_position - global_position).normalized()
-				player.apply_explosion_knockback(dir * 600.0 * falloff)
+	var world := get_tree().current_scene
+	if world:
+		CombatActions.apply_explosion(world, global_position, 90.0, damage, owner_node, faction, 600.0)
 	queue_free()
 
 func _on_body_entered(body: Node) -> void:
