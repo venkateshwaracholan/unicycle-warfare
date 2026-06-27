@@ -3,9 +3,7 @@ extends Node2D
 const PLAYER_SCENE := preload("res://scenes/player.tscn")
 const PLAY_CONTROLLER_SCRIPT := preload("res://scripts/modes/play_mode_controller.gd")
 
-const WEAPON_DROP_MIN := 2.5
-const WEAPON_DROP_MAX := 5.0
-const MAX_SKY_WEAPONS := 7
+const WeaponLoadoutPanel := preload("res://scripts/ui/weapon_loadout_panel.gd")
 
 @onready var arena: Arena = $Arena
 @onready var hill_zone: Area2D = $HillZone
@@ -21,7 +19,7 @@ const MAX_SKY_WEAPONS := 7
 @onready var title_label: Label = $HUD/Title
 
 var _players: Array = []
-var _weapon_drop_timer := 1.2
+var _loadout_panel: WeaponLoadoutPanel
 var _play_controller: Node
 
 func _ready() -> void:
@@ -54,7 +52,17 @@ func _setup_play_mode() -> void:
 
 func _setup_arena_mode() -> void:
 	p2_health_label.visible = true
-	_weapon_drop_timer = 1.2
+	_setup_loadout_panel()
+
+
+func _setup_loadout_panel() -> void:
+	if _loadout_panel != null:
+		_loadout_panel.queue_free()
+	_loadout_panel = WeaponLoadoutPanel.new()
+	_loadout_panel.name = "WeaponLoadout"
+	hud.add_child(_loadout_panel)
+	if _players.size() > 0 and is_instance_valid(_players[0]):
+		_loadout_panel.bind_player(_players[0])
 
 
 func _setup_menu_button() -> void:
@@ -94,20 +102,11 @@ func _session_message() -> String:
 	var zoom_hint := " · scroll/+/- zoom · 1/2 face · 0 reset"
 	if GameManager.is_play_mode():
 		return "Q/W pedal · A/D aim · E shoot · fall drops weapon · Menu (top-right)" + zoom_hint
-	return "Q/W pedal · A/D aim · E shoot · weapons from sky · Tab=mode · Menu (top-right)" + zoom_hint
+	return "Q/W pedal · A/D aim · E shoot · J=loadout · Tab=mode · M=map · Menu (top-right)" + zoom_hint
 
 
 func set_mission_message(text: String) -> void:
 	message_label.text = text
-
-
-func _physics_process(delta: float) -> void:
-	if GameManager.is_play_mode():
-		return
-	_weapon_drop_timer -= delta
-	if _weapon_drop_timer <= 0.0:
-		_drop_weapon_from_sky()
-		_weapon_drop_timer = randf_range(WEAPON_DROP_MIN, WEAPON_DROP_MAX)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -117,6 +116,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("restart_match"):
 		get_tree().reload_current_scene()
+		get_viewport().set_input_as_handled()
+		return
+	if not GameManager.is_play_mode() and event.is_action_pressed("weapon_loadout"):
+		if _loadout_panel:
+			_loadout_panel.toggle()
 		get_viewport().set_input_as_handled()
 		return
 	if GameManager.is_play_mode():
@@ -159,24 +163,6 @@ func _clear_weapons() -> void:
 			child.queue_free()
 
 
-func _sky_weapon_count() -> int:
-	var count := 0
-	for child in get_children():
-		if child.is_in_group("weapon_loot"):
-			count += 1
-	return count
-
-
-func _drop_weapon_from_sky() -> void:
-	if _sky_weapon_count() >= MAX_SKY_WEAPONS:
-		return
-	var weapon := WeaponDefs.random_sky_loot_type()
-	var x := randf_range(160.0, 1120.0)
-	var y := randf_range(-160.0, -30.0)
-	var vel := Vector2(randf_range(-100.0, 100.0), randf_range(40.0, 120.0))
-	FallConsequences.spawn_weapon_pickup(self, Vector2(x, y), weapon, vel)
-
-
 func _spawn_players() -> void:
 	for p in _players:
 		if is_instance_valid(p):
@@ -200,14 +186,13 @@ func _spawn_players() -> void:
 
 
 func _on_player_fell(player: Node2D) -> void:
-	if not is_instance_valid(player):
+	if not is_instance_valid(player) or not GameManager.is_play_mode():
 		return
 	FallConsequences.drop_weapon_from_player(player, self)
 
 
 func _respawn_all() -> void:
 	_clear_weapons()
-	_weapon_drop_timer = 1.2
 	for i in _players.size():
 		var p = _players[i]
 		if is_instance_valid(p):

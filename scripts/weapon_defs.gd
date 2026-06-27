@@ -212,6 +212,14 @@ const DATA := {
 static func get_data(weapon_type: Type) -> Dictionary:
 	return DATA.get(weapon_type, DATA[Type.NONE])
 
+static func loadout_types() -> Array:
+	var result: Array = []
+	for t in DATA.keys():
+		if t != Type.NONE:
+			result.append(t)
+	return result
+
+
 static func can_spawn_as_pickup(weapon_type: Type) -> bool:
 	return weapon_type != Type.NONE and weapon_type != Type.PISTOL
 

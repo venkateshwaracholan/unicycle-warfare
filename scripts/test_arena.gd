@@ -9,4 +9,4 @@ func _session_title() -> String:
 	return "ARENA"
 
 func _session_message() -> String:
-	return "PvP arena — Q/W pedal · A/D aim · E shoot · Tab=mode · M=map · scroll zoom · 1/2 face · 0 reset"
+	return "PvP arena — Q/W pedal · A/D aim · E shoot · J=loadout · Tab=mode · M=map · scroll zoom · 1/2 face · 0 reset"

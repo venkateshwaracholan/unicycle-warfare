@@ -12,13 +12,20 @@ const UnicycleRig := preload("res://scripts/unicycle/unicycle_rig.gd")
 
 const MAX_HEALTH := 100
 const PEDAL_ACCEL := 16.0
-const PEDAL_TURN_ACCEL := 55.0
-const TURN_BRAKE := 300.0
+const PEDAL_TURN_ACCEL := 40.0
+const TURN_BRAKE := 150.0
+const REVERSAL_SPEED_GATE := 5.0
 const PEDAL_COAST := 7.0
 const GRAVITY_LEAN := 4.0
 const INERTIA_FROM_SPEED := 0.001
-const INERTIA_FROM_ACCEL := 0.006
+const INERTIA_FROM_ACCEL := 0.004
+const INERTIA_ACCEL_STRESS_MIN := 0.08
 const MOVE_TILT := 16.0
+const MOVE_TILT_STRESS_MIN := 0.06
+const TURN_STRESS_ACCEL_REF := 85.0
+const BALANCE_SAFE_ANGLE := 0.13
+const BALANCE_RECOVERY := 11.0
+const BALANCE_RECOVERY_DAMP := 4.2
 const GET_UP_LEAN_RATE := 20.0
 const MG_RECOIL_BALANCE_RATE := 3.2
 const MG_GET_UP_RECOIL_BOOST := 3.5
@@ -43,6 +50,7 @@ var _respawn_timer := 0.0
 var _ground_y := 490.0
 var _last_wheel_x := 0.0
 var _last_vel_x := 0.0
+var _prev_lean := 0.0
 var _sustained_balance_push := 0.0
 
 @onready var wheel: RigidBody2D = $Wheel
@@ -217,10 +225,13 @@ func _process_riding(delta: float) -> void:
 	var vx := wheel.linear_velocity.x
 	if _current_lean != 0.0:
 		var target := _current_lean * MAX_SPEED
-		var reversing := absf(vx) > 0.5 and signf(_current_lean) != signf(vx)
+		var reversing := absf(vx) > REVERSAL_SPEED_GATE and signf(_current_lean) != signf(vx)
 		if reversing:
 			var bleed := minf(absf(vx), TURN_BRAKE * delta)
 			vx -= signf(vx) * bleed
+			# Bleed to a stop before accelerating the other way — avoids physics twitches.
+			if absf(vx) > REVERSAL_SPEED_GATE:
+				target = 0.0
 		var rate := PEDAL_TURN_ACCEL
 		if not reversing and absf(vx - target) < MAX_SPEED * 0.2:
 			rate = PEDAL_ACCEL
@@ -234,6 +245,27 @@ func _process_riding(delta: float) -> void:
 func _smooth_wheel_speed(current: float, target: float, rate: float, delta: float) -> float:
 	return lerpf(current, target, 1.0 - exp(-rate * delta))
 
+
+func _compute_turn_stress(vx: float, ax: float) -> float:
+	var stress := 0.0
+	if _current_lean != 0.0 and absf(vx) > REVERSAL_SPEED_GATE and signf(_current_lean) != signf(vx):
+		stress = maxf(stress, clampf(absf(vx) / MAX_SPEED, 0.35, 1.0))
+	if _prev_lean != 0.0 and _current_lean != 0.0 and signf(_prev_lean) != signf(_current_lean):
+		stress = maxf(stress, 0.8)
+	if absf(ax) > 1.0:
+		var accel_stress := clampf(absf(ax) / TURN_STRESS_ACCEL_REF, 0.0, 1.0)
+		stress = maxf(stress, accel_stress * clampf(absf(_current_lean), 0.0, 1.0))
+	_prev_lean = _current_lean
+	return stress
+
+
+func _safe_zone_factor() -> float:
+	var angle := absf(_rig.balance_angle)
+	if angle >= BALANCE_SAFE_ANGLE:
+		return 0.0
+	var t := 1.0 - angle / BALANCE_SAFE_ANGLE
+	return t * t
+
 func _update_balance(delta: float) -> void:
 	var wdata := WeaponDefs.get_data(weapon_type)
 	var weight: float = wdata["weight"]
@@ -242,12 +274,21 @@ func _update_balance(delta: float) -> void:
 	var ax := (vx - _last_vel_x) / maxf(delta, 0.001)
 	_last_vel_x = vx
 
+	var turn_stress := _compute_turn_stress(vx, ax)
+	var accel_inertia_scale := lerpf(INERTIA_ACCEL_STRESS_MIN, 1.0, turn_stress)
+
 	# Wheel right → rider falls left; wheel left → rider falls right.
-	var inertia := -vx * INERTIA_FROM_SPEED - ax * INERTIA_FROM_ACCEL
-	var move_tilt := -_current_lean * MOVE_TILT
+	var inertia := -vx * INERTIA_FROM_SPEED - ax * INERTIA_FROM_ACCEL * accel_inertia_scale
+	var tilt_scale := lerpf(MOVE_TILT_STRESS_MIN, 1.0, turn_stress) if _current_lean != 0.0 else 0.0
+	var move_tilt := -_current_lean * MOVE_TILT * tilt_scale
 	# Gravity slowly tips the rider further in whatever direction they lean.
 	var gravity := sin(_rig.balance_angle) * GRAVITY_LEAN * weight_mult
 	var recovery := 0.0
+
+	var safe := _safe_zone_factor()
+	if safe > 0.001 and not _rig.is_resting_on_ground_lean():
+		recovery += -_rig.balance_angle * BALANCE_RECOVERY * safe
+		_rig.balance_angular_vel *= exp(-BALANCE_RECOVERY_DAMP * safe * delta)
 
 	if _rig.is_resting_on_ground_lean():
 		# Gravity fighting the ground cap zeros velocity and feels "stuck".
@@ -482,6 +523,7 @@ func _finish_respawn() -> void:
 	wheel.linear_velocity = Vector2.ZERO
 	_rig.set_balance(0.0, 0.0)
 	_is_fallen = false
+	_prev_lean = 0.0
 	_sustained_balance_push = 0.0
 	_last_vel_x = 0.0
 	_rig.reset_wheel_spin()
