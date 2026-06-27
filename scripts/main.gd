@@ -2,6 +2,7 @@ extends Node2D
 
 const PLAYER_SCENE := preload("res://scenes/player.tscn")
 const WEAPON_PICKUP_SCENE := preload("res://scenes/weapon_pickup.tscn")
+const PLAY_CONTROLLER_SCRIPT := preload("res://scripts/modes/play_mode_controller.gd")
 
 const WEAPON_DROP_MIN := 2.5
 const WEAPON_DROP_MAX := 5.0
@@ -22,6 +23,7 @@ const MAX_SKY_WEAPONS := 7
 
 var _players: Array = []
 var _weapon_drop_timer := 1.2
+var _play_controller: Node
 
 func _ready() -> void:
 	GameManager.score_changed.connect(_on_score_changed)
@@ -31,10 +33,30 @@ func _ready() -> void:
 	_rebuild_arena()
 	_clear_weapons()
 	_spawn_players()
+	if GameManager.is_play_mode():
+		_setup_play_mode()
+	else:
+		_setup_arena_mode()
 	_update_hud()
 	title_label.text = _session_title()
 	message_label.text = _session_message()
 	_setup_menu_button()
+
+
+func _setup_play_mode() -> void:
+	p2_health_label.visible = GameManager.player_count > 1
+	hill_zone.visible = false
+	score_label.text = MissionManager.mission_name
+	_play_controller = PLAY_CONTROLLER_SCRIPT.new()
+	_play_controller.name = "PlayModeController"
+	add_child(_play_controller)
+	_play_controller.setup(self, hud)
+
+
+func _setup_arena_mode() -> void:
+	p2_health_label.visible = true
+	_weapon_drop_timer = 1.2
+
 
 func _setup_menu_button() -> void:
 	var btn := Button.new()
@@ -49,36 +71,55 @@ func _setup_menu_button() -> void:
 	btn.pressed.connect(_on_menu_button_pressed)
 	hud.add_child(btn)
 
+
 func _on_menu_button_pressed() -> void:
-	GameManager.return_to_menu()
+	GameManager.return_to_garage()
+
 
 func _apply_session() -> void:
 	if GameManager.session_type == GameManager.SessionType.NONE:
 		GameManager.start_play()
 	arena.map_id = GameManager.session_map
 	arena._configure_map()
-	GameManager.set_mode(GameManager.session_mode)
+	if not GameManager.is_play_mode():
+		GameManager.set_mode(GameManager.session_mode)
+
 
 func _session_title() -> String:
+	if GameManager.is_play_mode():
+		return "MISSION — %s" % MissionManager.mission_name
 	return "UNICYCLE WARFARE"
 
+
 func _session_message() -> String:
-	return "Start with minigun · weapons drop from the sky · Menu (top-right) to quit"
+	if GameManager.is_play_mode():
+		return "Fall = drop weapon · grab it or use pistol · Menu (top-right)"
+	return "Start with minigun · weapons drop from the sky · Menu (top-right)"
+
+
+func set_mission_message(text: String) -> void:
+	message_label.text = text
+
 
 func _physics_process(delta: float) -> void:
+	if GameManager.is_play_mode():
+		return
 	_weapon_drop_timer -= delta
 	if _weapon_drop_timer <= 0.0:
 		_drop_weapon_from_sky()
 		_weapon_drop_timer = randf_range(WEAPON_DROP_MIN, WEAPON_DROP_MAX)
 
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		GameManager.return_to_menu()
+		GameManager.return_to_garage()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("restart_match"):
 		get_tree().reload_current_scene()
 		get_viewport().set_input_as_handled()
+		return
+	if GameManager.is_play_mode():
 		return
 	if event.is_action_pressed("cycle_mode"):
 		GameManager.cycle_mode()
@@ -89,19 +130,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		_rebuild_arena()
 		_respawn_all()
 
+
 func _rebuild_arena() -> void:
 	var gy := arena.ground_y
 	ground.position = Vector2(640, gy)
 	left_wall.position = Vector2(60, gy - 30)
 	right_wall.position = Vector2(1220, gy - 30)
 	hill_zone.position = Vector2(640, gy - 60)
-	hill_zone.visible = GameManager.current_mode == GameManager.Mode.KING_OF_HILL
-	mode_label.text = "%s — %s" % [GameManager.mode_name(), arena.get_map_name()]
+	if GameManager.is_play_mode():
+		mode_label.text = "%s — %s" % [MissionManager.mission_name, arena.get_map_name()]
+	else:
+		hill_zone.visible = GameManager.current_mode == GameManager.Mode.KING_OF_HILL
+		mode_label.text = "%s — %s" % [GameManager.mode_name(), arena.get_map_name()]
+
+
+func spawn_weapon_pickup(global_pos: Vector2, weapon: WeaponDefs.Type, velocity: Vector2, dropped_by: int = 0) -> void:
+	FallConsequences.spawn_weapon_pickup(self, global_pos, weapon, velocity, dropped_by)
+
 
 func _clear_weapons() -> void:
 	for child in get_children():
 		if child.is_in_group("weapon_loot"):
 			child.queue_free()
+
 
 func _sky_weapon_count() -> int:
 	var count := 0
@@ -110,10 +161,10 @@ func _sky_weapon_count() -> int:
 			count += 1
 	return count
 
+
 func _drop_weapon_from_sky() -> void:
 	if _sky_weapon_count() >= MAX_SKY_WEAPONS:
 		return
-
 	var pickup := WEAPON_PICKUP_SCENE.instantiate()
 	pickup.add_to_group("weapon_loot")
 	pickup.weapon_type = WeaponDefs.random_sky_loot_type()
@@ -123,6 +174,7 @@ func _drop_weapon_from_sky() -> void:
 	pickup.launch(Vector2(randf_range(-100.0, 100.0), randf_range(40.0, 120.0)))
 	add_child(pickup)
 
+
 func _spawn_players() -> void:
 	for p in _players:
 		if is_instance_valid(p):
@@ -131,7 +183,8 @@ func _spawn_players() -> void:
 
 	var spawns := arena.spawn_points
 	var colors := [Color(0.95, 0.32, 0.32), Color(0.32, 0.58, 0.95)]
-	for i in 2:
+	var count := GameManager.player_count if GameManager.is_play_mode() else 2
+	for i in count:
 		var p := PLAYER_SCENE.instantiate()
 		p.player_id = i + 1
 		p.team_color = colors[i]
@@ -140,6 +193,7 @@ func _spawn_players() -> void:
 		p.eliminated.connect(_on_player_eliminated)
 		add_child(p)
 		_players.append(p)
+
 
 func _respawn_all() -> void:
 	_clear_weapons()
@@ -150,22 +204,33 @@ func _respawn_all() -> void:
 			p.spawn_position = arena.spawn_points[i]
 			p.respawn_at_spawn()
 
+
 func _on_player_eliminated(_victim: Node2D, killer: Node2D) -> void:
+	if GameManager.is_play_mode():
+		message_label.text = "Down! Respawning — protect your balance."
+		return
 	message_label.text = "Elimination! Vulnerable players go down — fight continues."
 	if killer and is_instance_valid(killer) and GameManager.current_mode == GameManager.Mode.GUN_GAME:
 		killer.weapon_type = GameManager.get_gun_game_weapon(killer.get_player_id())
 
+
 func _on_health_changed(current: int, maximum: int, player_id: int) -> void:
-	var text := "P%d HP: %d/%d" % [player_id, current, maximum]
+	var text := "HP: %d/%d" % [current, maximum] if GameManager.is_play_mode() else "P%d HP: %d/%d" % [player_id, current, maximum]
 	if player_id == 1:
 		p1_health_label.text = text
 	else:
 		p2_health_label.text = text
 
+
 func _on_score_changed(p1: int, p2: int) -> void:
+	if GameManager.is_play_mode():
+		return
 	score_label.text = "Score  P1: %d   P2: %d   (first to %d)" % [p1, p2, GameManager.WIN_SCORE]
 
+
 func _on_mode_changed(_mode: GameManager.Mode) -> void:
+	if GameManager.is_play_mode():
+		return
 	_rebuild_arena()
 	for p in _players:
 		if is_instance_valid(p):
@@ -175,12 +240,17 @@ func _on_mode_changed(_mode: GameManager.Mode) -> void:
 				p.weapon_type = WeaponDefs.Type.MINIGUN
 	_update_hud()
 
+
 func _on_match_won(winner_id: int, _mode: GameManager.Mode) -> void:
-message_label.text = "PLAYER %d WINS!  Menu (top-right)  F5=restart" % winner_id
+	message_label.text = "PLAYER %d WINS!  Menu (top-right)  F5=restart" % winner_id
+
 
 func _update_hud() -> void:
 	title_label.text = _session_title()
-	score_label.text = "Score  P1: %d   P2: %d   (first to %d)" % [
-		GameManager.scores[1], GameManager.scores[2], GameManager.WIN_SCORE
-	]
-	mode_label.text = "%s — %s" % [GameManager.mode_name(), arena.get_map_name()]
+	if GameManager.is_play_mode():
+		score_label.text = MissionManager.mission_name
+	else:
+		score_label.text = "Score  P1: %d   P2: %d   (first to %d)" % [
+			GameManager.scores[1], GameManager.scores[2], GameManager.WIN_SCORE
+		]
+	_rebuild_arena()

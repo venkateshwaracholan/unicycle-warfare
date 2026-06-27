@@ -73,6 +73,11 @@ var _shoot_action: String
 
 signal eliminated(victim: Node2D, killer: Node2D)
 signal health_changed(current: int, maximum: int)
+signal fell_over
+signal recovered_from_fall
+signal weapon_changed(weapon: WeaponDefs.Type)
+
+var _is_fallen := false
 
 func _ready() -> void:
 	add_to_group("players")
@@ -91,10 +96,13 @@ func _ready() -> void:
 	wheel.contact_monitor = true
 	wheel.body_entered.connect(_on_wheel_body_entered)
 	$Wheel/Rider/Visual.team_color = team_color
-	if GameManager.current_mode == GameManager.Mode.GUN_GAME:
+	if GameManager.is_play_mode():
+		weapon_type = WeaponDefs.Type.MINIGUN
+	elif GameManager.current_mode == GameManager.Mode.GUN_GAME:
 		weapon_type = GameManager.get_gun_game_weapon(player_id)
 	elif weapon_type == WeaponDefs.Type.NONE:
 		weapon_type = DEFAULT_WEAPON
+	_emit_weapon_changed()
 	health_changed.emit(health, MAX_HEALTH)
 
 func _setup_input() -> void:
@@ -198,6 +206,16 @@ func _update_balance(delta: float) -> void:
 	_balance_angular_vel *= exp(-BALANCE_DAMP * delta)
 	_balance_angle += _balance_angular_vel * delta
 	_apply_balance_angle()
+	_update_fall_state()
+
+func _update_fall_state() -> void:
+	var fallen := _is_resting_on_ground_lean()
+	if fallen and not _is_fallen:
+		_is_fallen = true
+		fell_over.emit()
+	elif not fallen and _is_fallen:
+		_is_fallen = false
+		recovered_from_fall.emit()
 
 func _is_sustained_recoil_weapon() -> bool:
 	return WeaponDefs.get_data(weapon_type).get("sustained_recoil", false)
@@ -384,11 +402,20 @@ func _stabilize_physics(delta: float) -> void:
 
 func _try_pickup_weapon() -> bool:
 	for area in pickup_area.get_overlapping_areas():
-		if area.has_method("get_weapon_type"):
-			weapon_type = area.get_weapon_type()
-			area.queue_free()
-			return true
+		if not area.has_method("get_weapon_type"):
+			continue
+		if area.has_method("get_dropped_by") and area.get_dropped_by() == player_id:
+			if area.has_method("get_drop_age") and area.get_drop_age() < FallConsequences.DROP_COOLDOWN:
+				continue
+		weapon_type = area.get_weapon_type()
+		_emit_weapon_changed()
+		area.queue_free()
+		return true
 	return false
+
+
+func _emit_weapon_changed() -> void:
+	weapon_changed.emit(weapon_type)
 
 func _try_attack() -> void:
 	if _fire_cooldown > 0.0:
@@ -523,6 +550,7 @@ func _finish_respawn() -> void:
 	_last_wheel_x = wheel.global_position.x
 	wheel.linear_velocity = Vector2.ZERO
 	_set_balance(0.0, 0.0)
+	_is_fallen = false
 	_sustained_balance_push = 0.0
 	_last_vel_x = 0.0
 	_wheel_spin = 0.0
@@ -535,10 +563,13 @@ func _finish_respawn() -> void:
 	if is_instance_valid(leg_front) and leg_front.has_method("reset_pose"):
 		leg_front.reset_pose()
 	_snap_to_ground()
-	if GameManager.current_mode == GameManager.Mode.GUN_GAME:
+	if GameManager.is_play_mode():
+		weapon_type = WeaponDefs.Type.PISTOL
+	elif GameManager.current_mode == GameManager.Mode.GUN_GAME:
 		weapon_type = GameManager.get_gun_game_weapon(player_id)
 	elif weapon_type == WeaponDefs.Type.NONE:
 		weapon_type = DEFAULT_WEAPON
+	_emit_weapon_changed()
 	state = State.RIDING
 	health_changed.emit(health, MAX_HEALTH)
 

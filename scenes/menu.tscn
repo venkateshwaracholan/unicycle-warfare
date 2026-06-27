@@ -18,68 +18,290 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.08, 0.1, 0.14, 1)
+color = Color(0.06, 0.08, 0.12, 1)
 
-[node name="MenuPanel" type="VBoxContainer" parent="."]
+[node name="GaragePanel" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -180.0
-offset_top = -180.0
-offset_right = 180.0
-offset_bottom = 180.0
+offset_left = -200.0
+offset_top = -200.0
+offset_right = 200.0
+offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 14
 
-[node name="Title" type="Label" parent="MenuPanel"]
+[node name="Title" type="Label" parent="GaragePanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
 theme_override_font_sizes/font_size = 34
-text = "UNICYCLE WARFARE"
+text = "GARAGE"
 horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="MenuPanel"]
+[node name="Subtitle" type="Label" parent="GaragePanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.85, 1, 1)
 theme_override_font_sizes/font_size = 14
-text = "Balance · shoot · repeat"
+text = "Tune up · pick a mission · ride out"
 horizontal_alignment = 1
 
-[node name="Spacer" type="Control" parent="MenuPanel"]
-custom_minimum_size = Vector2(0, 18)
+[node name="CoinsLabel" type="Label" parent="GaragePanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.92, 0.55, 1)
+theme_override_font_sizes/font_size = 16
+text = "Coins: 0"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="GaragePanel"]
+custom_minimum_size = Vector2(0, 10)
 layout_mode = 2
 
-[node name="PlayButton" type="Button" parent="MenuPanel"]
-custom_minimum_size = Vector2(260, 44)
+[node name="MissionBoardButton" type="Button" parent="GaragePanel"]
+custom_minimum_size = Vector2(280, 44)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 18
-text = "Play"
+text = "Mission Board"
 
-[node name="ArenaButton" type="Button" parent="MenuPanel"]
-custom_minimum_size = Vector2(260, 44)
+[node name="UpgradesButton" type="Button" parent="GaragePanel"]
+custom_minimum_size = Vector2(280, 44)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 18
-text = "Arena"
+text = "Upgrades"
 
-[node name="OptionsButton" type="Button" parent="MenuPanel"]
-custom_minimum_size = Vector2(260, 44)
+[node name="ArenaButton" type="Button" parent="GaragePanel"]
+custom_minimum_size = Vector2(280, 44)
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 16
+text = "Arena (PvP)"
+
+[node name="OptionsButton" type="Button" parent="GaragePanel"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 16
 text = "Options"
 
-[node name="QuitButton" type="Button" parent="MenuPanel"]
-custom_minimum_size = Vector2(260, 44)
+[node name="QuitButton" type="Button" parent="GaragePanel"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 16
+text = "Quit"
+
+[node name="MissionPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -280.0
+offset_right = 260.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MissionVBox" type="VBoxContainer" parent="MissionPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MissionTitle" type="Label" parent="MissionPanel/MissionVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 24
+text = "MISSION BOARD"
+horizontal_alignment = 1
+
+[node name="MissionHint" type="Label" parent="MissionPanel/MissionVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.8, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+text = "Pick a contract. Same maps, different objectives."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="MissionScroll" type="ScrollContainer" parent="MissionPanel/MissionVBox"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MissionList" type="VBoxContainer" parent="MissionPanel/MissionVBox/MissionScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="BackButton" type="Button" parent="MissionPanel/MissionVBox"]
+custom_minimum_size = Vector2(200, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 16
+text = "Back to Garage"
+
+[node name="DifficultyPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -220.0
+offset_right = 240.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DifficultyVBox" type="VBoxContainer" parent="DifficultyPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DifficultyTitle" type="Label" parent="DifficultyPanel/DifficultyVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 24
+text = "Choose Difficulty"
+horizontal_alignment = 1
+
+[node name="DifficultyInfo" type="Label" parent="DifficultyPanel/DifficultyVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.88, 0.92, 1)
+theme_override_font_sizes/font_size = 14
+text = "Mission info"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="DifficultyOptions" type="VBoxContainer" parent="DifficultyPanel/DifficultyVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LaunchButton" type="Button" parent="DifficultyPanel/DifficultyVBox"]
+custom_minimum_size = Vector2(220, 44)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 18
-text = "Quit"
+text = "Drop In"
+
+[node name="BackButton" type="Button" parent="DifficultyPanel/DifficultyVBox"]
+custom_minimum_size = Vector2(200, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 14
+text = "Back"
+
+[node name="RewardsPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -180.0
+offset_right = 240.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RewardsVBox" type="VBoxContainer" parent="RewardsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="RewardsTitle" type="Label" parent="RewardsPanel/RewardsVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 28
+text = "REWARDS"
+horizontal_alignment = 1
+
+[node name="RewardsBody" type="Label" parent="RewardsPanel/RewardsVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.92, 0.75, 1)
+theme_override_font_sizes/font_size = 16
+text = "Mission complete!"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="NextMissionButton" type="Button" parent="RewardsPanel/RewardsVBox"]
+custom_minimum_size = Vector2(240, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 18
+text = "Next Mission"
+
+[node name="UpgradesButton" type="Button" parent="RewardsPanel/RewardsVBox"]
+custom_minimum_size = Vector2(240, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 16
+text = "Upgrades"
+
+[node name="GarageButton" type="Button" parent="RewardsPanel/RewardsVBox"]
+custom_minimum_size = Vector2(240, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 14
+text = "Back to Garage"
+
+[node name="UpgradesPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -260.0
+offset_right = 260.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="UpgradesVBox" type="VBoxContainer" parent="UpgradesPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="UpgradesTitle" type="Label" parent="UpgradesPanel/UpgradesVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 24
+text = "UPGRADES"
+horizontal_alignment = 1
+
+[node name="UpgradesCoins" type="Label" parent="UpgradesPanel/UpgradesVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.92, 0.55, 1)
+theme_override_font_sizes/font_size = 15
+text = "Coins: 0"
+horizontal_alignment = 1
+
+[node name="UpgradesScroll" type="ScrollContainer" parent="UpgradesPanel/UpgradesVBox"]
+custom_minimum_size = Vector2(0, 360)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="UpgradesList" type="VBoxContainer" parent="UpgradesPanel/UpgradesVBox/UpgradesScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="BackButton" type="Button" parent="UpgradesPanel/UpgradesVBox"]
+custom_minimum_size = Vector2(200, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 16
+text = "Back to Garage"
 
 [node name="OptionsPanel" type="PanelContainer" parent="."]
 visible = false
@@ -111,8 +333,8 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.9, 1)
 theme_override_font_sizes/font_size = 14
-text = "Play — quick match
-Arena — PvP arena (Tab/M in-game)"
+text = "Mission Board — pick contracts, earn coins, unlock gear
+Arena — PvP unicycle combat"
 autowrap_mode = 2
 
 [node name="BackButton" type="Button" parent="OptionsPanel/OptionsVBox"]

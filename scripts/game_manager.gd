@@ -12,12 +12,17 @@ const ARENA_SCENE := "res://scenes/test_arena.tscn"
 var current_mode: Mode = Mode.DEATHMATCH
 var session_type: SessionType = SessionType.NONE
 var session_mode: Mode = Mode.DEATHMATCH
-var session_map: Arena.MapId = Arena.MapId.FLAT
+var session_map: MapDefs.MapId = MapDefs.MapId.DESERT
+var mission_id: String = "desert_radio_towers"
+var difficulty: DifficultyDefs.Tier = DifficultyDefs.Tier.NORMAL
+var player_count: int = 1
 var scores: Dictionary = {1: 0, 2: 0}
 var gun_game_tier: Dictionary = {1: 0, 2: 0}
 var koth_timer := 0.0
 var match_over := false
 var winner_id := 0
+var pending_rewards: Dictionary = {}
+var show_rewards_on_menu := false
 
 signal score_changed(p1: int, p2: int)
 signal mode_changed(mode: Mode)
@@ -49,15 +54,20 @@ func is_arena_mode() -> bool:
 func is_play_mode() -> bool:
 	return session_type == SessionType.PLAY
 
-func start_play(mode: Mode = Mode.DEATHMATCH, map_id: Arena.MapId = Arena.MapId.FLAT) -> void:
+func start_play(mission: String = "", tier: DifficultyDefs.Tier = DifficultyDefs.Tier.NORMAL) -> void:
 	session_type = SessionType.PLAY
-	session_mode = mode
-	session_map = map_id
+	mission_id = mission if mission != "" else MissionDefs.get_default_mission_id()
+	difficulty = tier
+	var def := MissionDefs.get_mission(mission_id)
+	session_map = def.get("map", MapDefs.MapId.DESERT)
+	session_mode = Mode.DEATHMATCH
+	player_count = 1
 	match_over = false
 	winner_id = 0
-	set_mode(mode)
+	current_mode = Mode.DEATHMATCH
+	_reset_scores()
 
-func start_arena(map_id: Arena.MapId = Arena.MapId.FLAT) -> void:
+func start_arena(map_id: MapDefs.MapId = MapDefs.MapId.DESERT) -> void:
 	session_type = SessionType.ARENA
 	session_mode = Mode.DEATHMATCH
 	session_map = map_id
@@ -65,9 +75,29 @@ func start_arena(map_id: Arena.MapId = Arena.MapId.FLAT) -> void:
 	winner_id = 0
 	set_mode(Mode.DEATHMATCH)
 
-func return_to_menu() -> void:
+func finish_mission_success() -> void:
+	var reward := MissionRewards.calculate(mission_id, difficulty)
+	pending_rewards = reward
+	show_rewards_on_menu = true
+	PlayerProgress.record_mission_complete(mission_id, int(reward.get("coins", 0)))
+
+func finish_mission_failed() -> void:
+	pending_rewards = {}
+	show_rewards_on_menu = false
+
+func consume_pending_rewards() -> Dictionary:
+	var reward := pending_rewards.duplicate()
+	pending_rewards = {}
+	show_rewards_on_menu = false
+	return reward
+
+func return_to_garage() -> void:
 	session_type = SessionType.NONE
+	MissionManager.reset()
 	get_tree().change_scene_to_file(MENU_SCENE)
+
+func return_to_menu() -> void:
+	return_to_garage()
 
 func set_mode(mode: Mode) -> void:
 	current_mode = mode
@@ -85,6 +115,8 @@ func register_elimination(victim_id: int, killer_id: int) -> void:
 	if match_over:
 		return
 	player_eliminated.emit(victim_id, killer_id)
+	if is_play_mode():
+		return
 
 	match current_mode:
 		Mode.DEATHMATCH:

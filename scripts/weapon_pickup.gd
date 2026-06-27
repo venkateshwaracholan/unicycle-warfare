@@ -6,11 +6,14 @@ var velocity := Vector2.ZERO
 var ground_y := 490.0
 var _bob_time := 0.0
 var _settled := false
+var _dropped_by := 0
+var _spawn_time := 0.0
 
 func _ready() -> void:
 	collision_layer = 8
 	collision_mask = 0
 	_bob_time = randf() * TAU
+	_spawn_time = Time.get_ticks_msec() / 1000.0
 	var arena := get_tree().get_first_node_in_group("arena")
 	if arena:
 		ground_y = arena.ground_surface_y() + 2.0
@@ -38,6 +41,18 @@ func launch(launch_velocity: Vector2) -> void:
 
 func get_weapon_type() -> WeaponDefs.Type:
 	return weapon_type
+
+
+func set_dropped_by(player_id: int) -> void:
+	_dropped_by = player_id
+
+
+func get_dropped_by() -> int:
+	return _dropped_by
+
+
+func get_drop_age() -> float:
+	return Time.get_ticks_msec() / 1000.0 - _spawn_time
 
 func _draw() -> void:
 	var data := WeaponDefs.get_data(weapon_type)

@@ -68,7 +68,10 @@ func _explode() -> void:
 func _resolve_damage_target(node: Node) -> Node:
 	var current := node
 	while current:
-		if current.has_method("take_damage") and current.is_in_group("players"):
-			return current
+		if current.has_method("take_damage"):
+			if current.is_in_group("enemies"):
+				return current
+			if current.is_in_group("players"):
+				return current
 		current = current.get_parent()
 	return null
