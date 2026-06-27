@@ -22,6 +22,7 @@ const INERTIA_FROM_ACCEL := 0.004
 const INERTIA_ACCEL_STRESS_MIN := 0.08
 const MOVE_TILT := 16.0
 const MOVE_TILT_STRESS_MIN := 0.06
+const TURN_WOBBLE_SCALE := 0.8
 const TURN_STRESS_ACCEL_REF := 85.0
 const BALANCE_SAFE_ANGLE := 0.13
 const BALANCE_RECOVERY := 11.0
@@ -36,6 +37,12 @@ const KNOCKBACK_SCALE := 0.4
 const REGEN_DELAY := 2.5
 const REGEN_RATE := 8.0
 const MAX_SPEED := 26.0
+const FALL_DAMAGE := 5
+const CRASH_DAMAGE := 15
+const CRASH_METER_THRESHOLD := 175.0
+const CRASH_METER_DECAY := 140.0
+const CRASH_BALANCE_VEL := 2.4
+const CRASH_SPEED := 19.0
 const ARENA_MIN_X := 100.0
 const ARENA_MAX_X := 1180.0
 
@@ -73,11 +80,12 @@ var _aim_right_action: String
 
 signal eliminated(victim: Node2D, killer: Node2D)
 signal health_changed(current: int, maximum: int)
-signal fell_over
+signal fell_over(is_crash: bool)
 signal recovered_from_fall
 signal weapon_changed(weapon: WeaponDefs.Type)
 
 var _is_fallen := false
+var _crash_meter := 0.0
 
 func _ready() -> void:
 	add_to_group("players")
@@ -167,6 +175,7 @@ func _physics_process(delta: float) -> void:
 
 	global_position = wheel.global_position
 	pickup_area.global_position = pelvis.global_position + Vector2(0, -20)
+	_crash_meter = maxf(0.0, _crash_meter - CRASH_METER_DECAY * delta)
 
 	if state == State.RIDING and health < MAX_HEALTH and _time_since_hit >= REGEN_DELAY:
 		health = mini(MAX_HEALTH, health + int(REGEN_RATE * delta))
@@ -275,12 +284,12 @@ func _update_balance(delta: float) -> void:
 	_last_vel_x = vx
 
 	var turn_stress := _compute_turn_stress(vx, ax)
-	var accel_inertia_scale := lerpf(INERTIA_ACCEL_STRESS_MIN, 1.0, turn_stress)
+	var accel_inertia_scale := lerpf(INERTIA_ACCEL_STRESS_MIN, 1.0, turn_stress) * TURN_WOBBLE_SCALE
 
 	# Wheel right → rider falls left; wheel left → rider falls right.
 	var inertia := -vx * INERTIA_FROM_SPEED - ax * INERTIA_FROM_ACCEL * accel_inertia_scale
 	var tilt_scale := lerpf(MOVE_TILT_STRESS_MIN, 1.0, turn_stress) if _current_lean != 0.0 else 0.0
-	var move_tilt := -_current_lean * MOVE_TILT * tilt_scale
+	var move_tilt := -_current_lean * MOVE_TILT * tilt_scale * TURN_WOBBLE_SCALE
 	# Gravity slowly tips the rider further in whatever direction they lean.
 	var gravity := sin(_rig.balance_angle) * GRAVITY_LEAN * weight_mult
 	var recovery := 0.0
@@ -311,10 +320,47 @@ func _update_fall_state() -> void:
 	var fallen := _rig.is_resting_on_ground_lean()
 	if fallen and not _is_fallen:
 		_is_fallen = true
-		fell_over.emit()
+		var is_crash := _classify_crash()
+		_apply_fall_consequence(is_crash)
+		fell_over.emit(is_crash)
 	elif not fallen and _is_fallen:
 		_is_fallen = false
 		recovered_from_fall.emit()
+
+
+func register_crash_impulse(impulse_magnitude: float) -> void:
+	_crash_meter = maxf(_crash_meter, impulse_magnitude)
+
+
+func _classify_crash() -> bool:
+	if _crash_meter >= CRASH_METER_THRESHOLD:
+		return true
+	if absf(_rig.balance_angular_vel) >= CRASH_BALANCE_VEL:
+		return true
+	if wheel.linear_velocity.length() >= CRASH_SPEED:
+		return true
+	return false
+
+
+func _apply_fall_consequence(is_crash: bool) -> void:
+	if is_crash:
+		_apply_fall_damage(CRASH_DAMAGE)
+		var world := get_tree().current_scene
+		if world and GameManager.is_play_mode():
+			FallConsequences.drop_weapon_from_player(self, world)
+	else:
+		_apply_fall_damage(FALL_DAMAGE)
+	_crash_meter = 0.0
+
+
+func _apply_fall_damage(amount: int) -> void:
+	if state != State.RIDING:
+		return
+	health = maxi(0, health - amount)
+	_time_since_hit = 0.0
+	health_changed.emit(health, MAX_HEALTH)
+	if health <= 0:
+		_start_respawn(null)
 
 func _is_sustained_recoil_weapon() -> bool:
 	return WeaponDefs.get_data(weapon_type).get("sustained_recoil", false)
@@ -523,6 +569,7 @@ func _finish_respawn() -> void:
 	wheel.linear_velocity = Vector2.ZERO
 	_rig.set_balance(0.0, 0.0)
 	_is_fallen = false
+	_crash_meter = 0.0
 	_prev_lean = 0.0
 	_sustained_balance_push = 0.0
 	_last_vel_x = 0.0
@@ -552,6 +599,7 @@ func respawn_at_spawn() -> void:
 func apply_explosion_knockback(impulse: Vector2) -> void:
 	var scaled := impulse * KNOCKBACK_SCALE
 	wheel.apply_central_impulse(scaled)
+	register_crash_impulse(scaled.length())
 	if state == State.RIDING:
 		_rig.balance_angular_vel += scaled.x * 0.0012
 

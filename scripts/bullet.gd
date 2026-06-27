@@ -14,6 +14,9 @@ var _trail: PackedVector2Array = PackedVector2Array()
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
+	if is_rocket:
+		collision_mask = collision_mask | 1
+
 
 func _physics_process(delta: float) -> void:
 	if _stuck:
@@ -26,6 +29,9 @@ func _physics_process(delta: float) -> void:
 	_record_trail(prev)
 	if is_rocket:
 		velocity.y += 120.0 * delta
+		if _hits_world_surface():
+			_explode()
+			return
 	if absf(position.x) > 3000.0 or position.y > 1200.0 or position.y < -400.0:
 		if is_rocket:
 			_explode()
@@ -56,6 +62,15 @@ func _draw() -> void:
 func _impact_at(pos: Vector2, normal: Vector2) -> void:
 	if is_instance_valid(CombatVFX):
 		CombatVFX.bullet_impact(pos, normal)
+
+
+func _hits_world_surface() -> bool:
+	var arena := get_tree().get_first_node_in_group("arena")
+	if arena and global_position.y >= arena.ground_surface_y() - 8.0:
+		return true
+	if global_position.x < 70.0 or global_position.x > 1210.0:
+		return true
+	return false
 
 func _on_body_entered(body: Node) -> void:
 	var target := _resolve_damage_target(body)

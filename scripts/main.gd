@@ -101,7 +101,7 @@ func _session_title() -> String:
 func _session_message() -> String:
 	var zoom_hint := " · scroll/+/- zoom · 1/2 face · 0 reset"
 	if GameManager.is_play_mode():
-		return "Q/W pedal · A/D aim · E shoot · fall drops weapon · Menu (top-right)" + zoom_hint
+		return "Q/W pedal · A/D aim · E shoot · soft fall −5 HP · crash drops gun · Menu (top-right)" + zoom_hint
 	return "Q/W pedal · A/D aim · E shoot · J=loadout · Tab=mode · M=map · Menu (top-right)" + zoom_hint
 
 
@@ -185,10 +185,17 @@ func _spawn_players() -> void:
 		_players.append(p)
 
 
-func _on_player_fell(player: Node2D) -> void:
-	if not is_instance_valid(player) or not GameManager.is_play_mode():
-		return
-	FallConsequences.drop_weapon_from_player(player, self)
+func _on_player_fell(_player: Node2D, is_crash: bool) -> void:
+	if is_crash:
+		if GameManager.is_play_mode():
+			message_label.text = "Hard crash! −15 HP · weapon dropped"
+		else:
+			message_label.text = "Hard crash! −15 HP"
+	else:
+		if GameManager.is_play_mode():
+			message_label.text = "Tumbled! −5 HP · keep your weapon"
+		else:
+			message_label.text = "Tumbled! −5 HP"
 
 
 func _respawn_all() -> void:
