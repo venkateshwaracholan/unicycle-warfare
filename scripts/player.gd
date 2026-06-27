@@ -57,7 +57,11 @@ var _sustained_balance_push := 0.0
 
 @onready var wheel: RigidBody2D = $Wheel
 @onready var wheel_visual: Node2D = $Wheel/Visual
+@onready var pedals: Node2D = $Wheel/Pedals
 @onready var rider: Node2D = $Wheel/Rider
+@onready var rider_visual: Node2D = $Wheel/Rider/Visual
+@onready var leg_back: Node2D = $Wheel/LegBack
+@onready var leg_front: Node2D = $Wheel/Rider/LegFront
 @onready var body_collision: CollisionShape2D = $Wheel/BodyCollision
 @onready var pickup_area: Area2D = $PickupArea
 @onready var muzzle: Marker2D = $Wheel/Rider/Muzzle
@@ -266,24 +270,45 @@ func _apply_balance_angle() -> void:
 	wheel.rotation = 0.0
 	rider.position = WHEEL_HUB + RIDER_OFFSET_FROM_HUB.rotated(_balance_angle)
 	rider.rotation = _balance_angle
+	if is_instance_valid(leg_back):
+		leg_back.position = rider.position
+		leg_back.rotation = rider.rotation
 
 func _set_balance(angle: float, ang_vel: float = 0.0) -> void:
 	_balance_angle = angle
 	_balance_angular_vel = ang_vel
 	_apply_balance_angle()
 
-func _sync_wheel_spin(_delta: float) -> void:
+func _sync_wheel_spin(delta: float) -> void:
 	var x := wheel.global_position.x
 	if not _is_grounded():
 		_last_wheel_x = x
+		_update_pedal_visual(delta, false)
 		return
 	var dx := x - _last_wheel_x
 	_last_wheel_x = x
-	if absf(dx) < 0.0001:
+	if absf(dx) >= 0.0001:
+		# Rolling without slip: angle = arc_length / radius = dx / (2πr) × 2π
+		_wheel_spin += TAU * (dx / WHEEL_CIRCUMFERENCE)
+		wheel_visual.rotation = _wheel_spin
+	elif absf(_current_lean) > 0.01:
+		# Mash pedals in place when pushing but barely moving
+		_wheel_spin += _current_lean * 7.0 * delta
+	_update_pedal_visual(delta, true)
+
+func _update_pedal_visual(delta: float, grounded: bool) -> void:
+	if not is_instance_valid(pedals):
 		return
-	# Rolling without slip: angle = arc_length / radius = dx / (2πr) × 2π
-	_wheel_spin += TAU * (dx / WHEEL_CIRCUMFERENCE)
-	wheel_visual.rotation = _wheel_spin
+	pedals.spin_angle = _wheel_spin
+	var target_intensity := absf(_current_lean) if state == State.RIDING and grounded else 0.0
+	pedals.pedaling_intensity = lerpf(pedals.pedaling_intensity, target_intensity, 1.0 - exp(-14.0 * delta))
+	pedals.queue_redraw()
+	if is_instance_valid(rider_visual):
+		rider_visual.queue_redraw()
+	if is_instance_valid(leg_back):
+		leg_back.queue_redraw()
+	if is_instance_valid(leg_front):
+		leg_front.queue_redraw()
 
 func _read_lean() -> float:
 	var lean := 0.0
@@ -501,6 +526,13 @@ func _finish_respawn() -> void:
 	_last_vel_x = 0.0
 	_wheel_spin = 0.0
 	wheel_visual.rotation = 0.0
+	if is_instance_valid(pedals):
+		pedals.spin_angle = 0.0
+		pedals.pedaling_intensity = 0.0
+	if is_instance_valid(leg_back) and leg_back.has_method("reset_pose"):
+		leg_back.reset_pose()
+	if is_instance_valid(leg_front) and leg_front.has_method("reset_pose"):
+		leg_front.reset_pose()
 	_snap_to_ground()
 	if GameManager.current_mode == GameManager.Mode.GUN_GAME:
 		weapon_type = GameManager.get_gun_game_weapon(player_id)

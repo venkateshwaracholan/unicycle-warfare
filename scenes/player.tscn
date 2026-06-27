@@ -1,7 +1,9 @@
-[gd_scene load_steps=8 format=3 uid="uid://bplayer001"]
+[gd_scene load_steps=10 format=3 uid="uid://bplayer001"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/character_visual.gd" id="2_visual"]
+[ext_resource type="Script" path="res://scripts/pedal_visual.gd" id="3_pedals"]
+[ext_resource type="Script" path="res://scripts/leg_visual.gd" id="4_leg"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_wheel"]
 friction = 1.1
@@ -38,12 +40,35 @@ shape = SubResource("CircleShape2D_wheel")
 position = Vector2(0, -83)
 shape = SubResource("RectangleShape2D_body")
 
+[node name="LegBack" type="Node2D" parent="Wheel"]
+z_index = 0
+position = Vector2(0, -60)
+script = ExtResource("4_leg")
+pedal_index = 1
+draw_behind = true
+
 [node name="Visual" type="Node2D" parent="Wheel"]
+z_index = 1
 position = Vector2(0, -22)
 script = ExtResource("2_visual")
 
+[node name="Pedals" type="Node2D" parent="Wheel"]
+z_index = 2
+position = Vector2(0, -22)
+script = ExtResource("3_pedals")
+
 [node name="Rider" type="Node2D" parent="Wheel"]
+z_index = 3
 position = Vector2(0, -60)
+
+[node name="Visual" type="Node2D" parent="Wheel/Rider"]
+script = ExtResource("2_visual")
+is_rider = true
+
+[node name="LegFront" type="Node2D" parent="Wheel/Rider"]
+z_index = 1
+script = ExtResource("4_leg")
+pedal_index = 0
 
 [node name="Hitbox" type="Area2D" parent="Wheel/Rider"]
 collision_layer = 2
@@ -52,10 +77,6 @@ collision_mask = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Wheel/Rider/Hitbox"]
 position = Vector2(0, -8)
 shape = SubResource("RectangleShape2D_hitbox")
-
-[node name="Visual" type="Node2D" parent="Wheel/Rider"]
-script = ExtResource("2_visual")
-is_rider = true
 
 [node name="Muzzle" type="Marker2D" parent="Wheel/Rider"]
 position = Vector2(26, -22)

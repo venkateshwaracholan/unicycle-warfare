@@ -74,7 +74,6 @@ cycle_map={
 
 [physics]
 
-2d/default_gravity=980.0
 3d/physics_engine="Jolt Physics"
 
 [rendering]
