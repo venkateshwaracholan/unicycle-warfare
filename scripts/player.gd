@@ -11,11 +11,11 @@ const Shapes := preload("res://scripts/draw_shapes.gd")
 const UnicycleRig := preload("res://scripts/unicycle/unicycle_rig.gd")
 
 const MAX_HEALTH := 100
-const SPEED_ACCEL := 340.0
-const SPEED_BRAKE := 500.0
+const SPEED_ACCEL := 480.0
+const SPEED_BRAKE := 750.0
 const SPEED_COAST := 105.0
 const REVERSAL_CARRY_ABOVE := 0.48
-const REVERSAL_CARRY_BRAKE := 0.24
+const REVERSAL_CARRY_BRAKE := 0.18
 const REVERSAL_SPEED_GATE := 40.0
 const GRAVITY_LEAN := 4.0
 const INERTIA_FROM_SPEED := 0.00085
@@ -36,7 +36,7 @@ const DEFAULT_WEAPON := WeaponDefs.Type.ROCKET
 const RECOIL_SCALE := 0.95
 const REGEN_DELAY := 2.5
 const REGEN_RATE := 8.0
-const MAX_SPEED := 200.0
+const MAX_SPEED := 300.0
 const ARENA_MIN_X := 100.0
 const ARENA_MAX_X := 1180.0
 
