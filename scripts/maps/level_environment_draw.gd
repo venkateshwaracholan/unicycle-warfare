@@ -63,7 +63,8 @@ static func draw_mission_backdrop(
 	_draw_skyline(canvas, left, right, surface_y, str(scene.get("skyline", "city")), scene, time)
 
 	if scene.get("window_band", false):
-		_draw_window_band(canvas, left, right, surface_y - 95.0 * SKYLINE_HEIGHT_SCALE * 0.25, scene)
+		var facade_top := surface_y - SKYLINE_BASE_OFFSET - 120.0 * SKYLINE_HEIGHT_SCALE * 0.25
+		_draw_window_facade(canvas, left, right, facade_top, surface_y - 12.0, scene)
 
 	if scene.get("interior_ceiling", false):
 		var ceiling_h := 88.0 * SKYLINE_HEIGHT_SCALE
@@ -92,40 +93,48 @@ static func draw_lower_shaft(
 
 	_round_rect(canvas, Rect2(left, top, right - left, depth), 0.0, base)
 
-	# Soft horizontal bands
-	for band_i in 4:
-		var band_y := top + 24.0 + band_i * 68.0
-		if band_y > top + depth - 20.0:
-			break
-		_round_rect(
-			canvas,
-			Rect2(left + 6.0, band_y, right - left - 12.0, 10.0),
-			5.0,
-			panel.lightened(0.03 + float(band_i) * 0.01)
-		)
-
-	# Cute polka-dot field
-	var dot_step := 40.0 if bake_mode else 26.0
-	var col_start := int(floor(left / dot_step)) - 1
-	var col_end := int(ceil(right / dot_step)) + 1
-	var row_y := top + 20.0
-	var row_i := 0
-	while row_y < top + depth - 16.0:
-		for col in range(col_start, col_end + 1):
-			var cx := col * dot_step + (dot_step * 0.5 if row_i % 2 == 0 else dot_step * 0.2)
-			if cx < left + 8.0 or cx > right - 8.0:
-				continue
-			var seed := float(col * 7 + row_i * 13)
-			var radius := 3.0 + fmod(seed, 2.5)
-			var dot_color := accent.lightened(0.12 + fmod(seed, 3.0) * 0.04)
-			canvas.draw_circle(Vector2(cx, row_y + fmod(seed, 10.0)), radius, dot_color)
-			if int(seed) % 11 == 0:
-				_draw_tiny_star(canvas, Vector2(cx + 6.0, row_y + 5.0), accent.lightened(0.2), 5.0)
-		row_y += dot_step * 0.85
-		row_i += 1
+	_draw_brick_pattern(
+		canvas,
+		Rect2(left + 8.0, top + 8.0, right - left - 16.0, depth - 16.0),
+		panel,
+		panel.darkened(0.05),
+		accent.darkened(0.12)
+	)
 
 	_round_rect(canvas, Rect2(left, top, 10.0, depth), 5.0, accent.darkened(0.08))
 	_round_rect(canvas, Rect2(right - 10.0, top, 10.0, depth), 5.0, accent.darkened(0.08))
+
+
+static func _draw_brick_pattern(
+	canvas: CanvasItem,
+	area: Rect2,
+	brick_a: Color,
+	brick_b: Color,
+	mortar: Color
+) -> void:
+	const BRICK_W := 54.0
+	const BRICK_H := 26.0
+	const GAP := 3.0
+	var row_i := 0
+	var y := area.position.y
+	while y + BRICK_H <= area.end.y:
+		var row_offset := (BRICK_W + GAP) * 0.5 if row_i % 2 == 1 else 0.0
+		var x := area.position.x + row_offset
+		var col_i := 0
+		while x < area.end.x:
+			var brick_w := minf(BRICK_W, area.end.x - x - GAP * 0.5)
+			if brick_w < 8.0:
+				break
+			var brick_color := brick_a if (row_i + col_i) % 2 == 0 else brick_b
+			var brick_rect := Rect2(x, y, brick_w, BRICK_H)
+			if bake_mode:
+				canvas.draw_rect(brick_rect, brick_color)
+			else:
+				_round_rect(canvas, brick_rect, 2.0, brick_color, mortar, 1.0)
+			x += BRICK_W + GAP
+			col_i += 1
+		y += BRICK_H + GAP
+		row_i += 1
 
 
 static func draw_platform(
@@ -328,9 +337,9 @@ static func _draw_city_skyline(
 	scene: Dictionary,
 	harbor: bool
 ) -> void:
-	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 0.42, 1.25, 0.58)
-	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 0.68, 1.0, 0.78)
-	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 1.0, 0.82, 1.0)
+	# Distant silhouettes — staggered so they sit between foreground towers.
+	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 0.48, 1.05, 0.62, true)
+	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 1.0, 0.92, 1.0, false)
 
 
 static func _draw_city_building_layer(
@@ -342,35 +351,58 @@ static func _draw_city_building_layer(
 	harbor: bool,
 	height_scale: float,
 	width_scale: float,
-	tone: float
+	tone: float,
+	background: bool = false
 ) -> void:
 	var building: Color = scene.get("wall_panel", Color(0.92, 0.9, 0.78)).lightened(0.06 * tone)
+	if background:
+		building = building.darkened(0.14)
 	var accent: Color = scene.get("wall_accent", Color(0.72, 0.76, 0.82))
-	var x := left - 30.0 * (1.0 - width_scale)
+	var gap := 22.0 if background else 16.0
+	var x := left - 24.0 + (54.0 if background else 0.0)
 	var i := 0
 	while x < right + 20.0:
-		var w := (72.0 + float(i % 4) * 26.0) * width_scale
-		var h := (90.0 + float((i * 3) % 5) * 32.0) * SKYLINE_HEIGHT_SCALE * height_scale
-		_round_rect(canvas, Rect2(x, base_y - h, w, h + 24.0), 8.0, building.darkened(0.03 * float(i % 3)))
-		var row_count := maxi(4, int(h / 52.0))
-		var col_count := maxi(3, int(w / 22.0))
-		for row in row_count:
-			for col in col_count:
-				if bake_mode and (row + col) % 2 == 1:
-					continue
-				var wx := x + 14.0 + col * 18.0
-				if wx > x + w - 10.0:
-					break
-				_round_rect(
-					canvas,
-					Rect2(wx, base_y - h + 16.0 + row * 18.0, 10.0, 12.0),
-					3.0,
-					accent if (row + col + i) % 2 == 0 else accent.lightened(0.25)
-				)
-		if harbor and i % 3 == 0 and height_scale > 0.9:
-			_round_rect(canvas, Rect2(x + w * 0.2, base_y - h - 18.0, w * 0.6, 14.0), 6.0, Color(0.88, 0.9, 0.92))
-		x += w + 12.0
+		var w := (68.0 + float(i % 4) * 24.0) * width_scale
+		var h := (88.0 + float((i * 3) % 5) * 30.0) * SKYLINE_HEIGHT_SCALE * height_scale
+		var body := Rect2(x, base_y - h, w, h + 24.0)
+		_round_rect(canvas, body, 8.0, building.darkened(0.03 * float(i % 3)))
+		if not background:
+			_draw_building_window_grid(canvas, body, accent, i)
+			if harbor and i % 3 == 0:
+				_round_rect(canvas, Rect2(x + w * 0.2, base_y - h - 18.0, w * 0.6, 14.0), 6.0, Color(0.88, 0.9, 0.92))
+		x += w + gap
 		i += 1
+
+
+static func _draw_building_window_grid(
+	canvas: CanvasItem,
+	body: Rect2,
+	accent: Color,
+	seed: int
+) -> void:
+	const pad_x := 14.0
+	const pad_top := 16.0
+	const pad_bottom := 18.0
+	const win_w := 10.0
+	const win_h := 12.0
+	const col_step := 18.0
+	const row_step := 18.0
+	var y := body.position.y + pad_top
+	var max_y := body.end.y - pad_bottom - win_h
+	while y <= max_y:
+		var wx := body.position.x + pad_x
+		var max_x := body.end.x - pad_x - win_w
+		var col := 0
+		while wx <= max_x:
+			if bake_mode and (col + int((y - body.position.y) / row_step)) % 2 == 1:
+				wx += col_step
+				col += 1
+				continue
+			var tint := accent if (col + seed) % 2 == 0 else accent.lightened(0.25)
+			_round_rect(canvas, Rect2(wx, y, win_w, win_h), 3.0, tint)
+			wx += col_step
+			col += 1
+		y += row_step
 
 
 static func _draw_factory_skyline(
@@ -485,13 +517,46 @@ static func _draw_volcano_skyline(
 	)
 
 
-static func _draw_window_band(canvas: CanvasItem, left: float, right: float, y: float, scene: Dictionary) -> void:
+static func _draw_window_facade(
+	canvas: CanvasItem,
+	left: float,
+	right: float,
+	top_y: float,
+	bottom_y: float,
+	scene: Dictionary
+) -> void:
+	var height := bottom_y - top_y
+	if height < 32.0:
+		return
 	var frame: Color = scene.get("wall_panel", Color(0.92, 0.93, 0.95))
-	_round_rect(canvas, Rect2(left + 40.0, y, right - left - 80.0, 64.0), 12.0, frame, scene.get("wall_accent", Color.GRAY), 2.0)
-	var x := left + 56.0
-	while x < right - 80.0:
-		_round_rect(canvas, Rect2(x, y + 14.0, 36.0, 36.0), 8.0, Color(0.55, 0.72, 0.88, 0.45))
-		x += 52.0
+	var accent: Color = scene.get("wall_accent", Color(0.55, 0.68, 0.82))
+	var margin := 40.0
+	var facade := Rect2(left + margin, top_y, right - left - margin * 2.0, height)
+	_round_rect(canvas, facade, 12.0, frame, accent.darkened(0.08), 2.0)
+	const win_w := 36.0
+	const win_h := 36.0
+	const pad := 14.0
+	const col_step := 52.0
+	const row_step := 52.0
+	var row_y := top_y + pad
+	var max_y := bottom_y - pad - win_h
+	var row_i := 0
+	while row_y <= max_y:
+		var wx := left + margin + pad
+		var max_x := right - margin - pad - win_w
+		var col_i := 0
+		while wx <= max_x:
+			if bake_mode and (row_i + col_i) % 2 == 1:
+				wx += col_step
+				col_i += 1
+				continue
+			var glass := accent.lightened(0.08)
+			glass.a = 0.45
+			_round_rect(canvas, Rect2(wx, row_y, win_w, win_h), 8.0, glass)
+			wx += col_step
+			col_i += 1
+		row_y += row_step
+		row_i += 1
 
 
 static func _draw_pill_label(canvas: CanvasItem, pos: Vector2, text: String, accent: Color) -> void:
