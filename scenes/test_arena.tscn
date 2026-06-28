@@ -124,7 +124,7 @@ offset_right = 420.0
 offset_bottom = -16.0
 theme_override_colors/font_color = Color(0.95, 0.4, 0.4, 1)
 theme_override_font_sizes/font_size = 13
-text = "P1 — Q/W move wheel  E shoot
+text = "P1 — A/D steer  R shoot
 Lean INTO recoil · ride over guns"
 
 [node name="ControlsP2" type="Label" parent="HUD"]
@@ -139,7 +139,7 @@ offset_right = -16.0
 offset_bottom = -16.0
 theme_override_colors/font_color = Color(0.4, 0.65, 0.95, 1)
 theme_override_font_sizes/font_size = 13
-text = "P2 — I/O balance & move  P shoot
+text = "P2 — J/L steer  P shoot
 Tab mode  M map  Menu (top-right)"
 horizontal_alignment = 2
 

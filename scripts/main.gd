@@ -119,8 +119,8 @@ func _session_message() -> String:
 	var zoom_hint := " · scroll/+/- zoom · 1/2 face · 0 reset"
 	var fall_hint := " · " + FallConsequences.rules_hint()
 	if GameManager.is_play_mode():
-		return "Q/W pedal · A/D aim · E shoot" + fall_hint + " · Ride east through the mission · Retry/Menu (top-right)" + zoom_hint
-	return "Q/W pedal · A/D aim · E shoot · J=loadout" + fall_hint + " · Tab=mode · M=map · Retry/Menu (top-right)" + zoom_hint
+		return "A/D steer · R shoot" + fall_hint + " · Ride east through the mission · Retry/Menu (top-right)" + zoom_hint
+	return "A/D steer · R shoot · J/L P2 · P shoot · U=loadout" + fall_hint + " · Tab=mode · M=map · Retry/Menu (top-right)" + zoom_hint
 
 
 func set_mission_message(text: String) -> void:
