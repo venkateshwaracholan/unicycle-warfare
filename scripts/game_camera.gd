@@ -8,6 +8,8 @@ const MIN_ZOOM := 0.55
 const MAX_ZOOM := 6.0
 const ZOOM_STEP := 1.12
 const FACE_OFFSET := Vector2(4.0, -42.0)
+## Ground line screen position during mission follow (0.5 = center; higher = more sky).
+const MISSION_GROUND_SCREEN_FRAC := 0.72
 
 enum Focus { WIDE, PLAYER1, PLAYER2, MISSION }
 
@@ -95,15 +97,26 @@ func _clamp_camera_x(x: float) -> float:
 	return clampf(x, min_x, max_x)
 
 
+func _mission_camera_y() -> float:
+	var viewport_h := get_viewport().get_visible_rect().size.y
+	var half_h := viewport_h * 0.5
+	var surface_y := DEFAULT_POS.y
+	var arena := get_tree().get_first_node_in_group("arena") as Arena
+	if arena:
+		surface_y = arena.ground_surface_y()
+	return surface_y - (MISSION_GROUND_SCREEN_FRAC * viewport_h - half_h) / _target_zoom
+
+
 func _mission_anchor() -> Vector2:
+	var cam_y := _mission_camera_y()
 	for node in get_tree().get_nodes_in_group("players"):
 		if not node is Node2D or not node.has_method("get_player_id"):
 			continue
 		if node.get_player_id() != 1:
 			continue
 		var player: Node2D = node
-		return Vector2(player.global_position.x, DEFAULT_POS.y)
-	return Vector2(_level_left + 640.0, DEFAULT_POS.y)
+		return Vector2(player.global_position.x, cam_y)
+	return Vector2(_level_left + 640.0, cam_y)
 
 
 func _set_focus(focus: Focus) -> void:

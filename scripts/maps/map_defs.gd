@@ -28,6 +28,8 @@ const PLAYER_SAFE_ZONE_MIN_WIDTH := 1400.0
 
 ## Mission playfield sits higher on screen so the lower wall shaft is visible.
 const MISSION_GROUND_Y := 378.0
+## Vertical world space above the play surface (~4× prior headroom for jumps / vertical movement).
+const MISSION_HEADROOM_ABOVE_GROUND := 2200.0
 
 ## Temporary — single-height platforms for navigation testing.
 const FLAT_MISSION_LEVELS := true
@@ -35,6 +37,10 @@ const FLAT_MISSION_LEVELS := true
 
 static func mission_ground_y() -> float:
 	return MISSION_GROUND_Y
+
+
+static func mission_sky_top_y(surface_y: float = MISSION_GROUND_Y - 20.0) -> float:
+	return surface_y - MISSION_HEADROOM_ABOVE_GROUND
 
 const MAPS := {
 	MapId.DESERT: {

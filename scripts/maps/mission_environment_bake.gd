@@ -2,9 +2,10 @@ class_name MissionEnvironmentBake
 
 const _BakeDrawer := preload("res://scripts/maps/mission_bake_drawer.gd")
 
-const BAKE_Y_MIN := -80.0
 const BAKE_Y_MAX := 720.0
 const MAX_BAKE_WIDTH := 8192
+## How far above the play surface the baked backdrop includes (tall skyline + zoom-out).
+const BAKE_HEADROOM_ABOVE_SURFACE := 1100.0
 
 static var _cache: Dictionary = {}
 
@@ -22,8 +23,9 @@ static func bake(
 
 	var left := level.world_left
 	var right := level.world_right
+	var bake_y_min := bake_y_min_for(surface_y)
 	var world_w := int(ceil(right - left))
-	var world_h := int(ceil(BAKE_Y_MAX - BAKE_Y_MIN))
+	var world_h := int(ceil(BAKE_Y_MAX - bake_y_min))
 	if world_w < 1:
 		world_w = 1
 
@@ -59,7 +61,7 @@ static func bake(
 	var sprite := Sprite2D.new()
 	sprite.name = "MissionBakeSprite"
 	sprite.centered = false
-	sprite.position = Vector2(left, BAKE_Y_MIN)
+	sprite.position = Vector2(left, bake_y_min)
 	sprite.z_index = -8
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 
@@ -72,6 +74,10 @@ static func bake(
 	return _duplicate_sprite(sprite)
 
 
+static func bake_y_min_for(surface_y: float) -> float:
+	return minf(-900.0, surface_y - BAKE_HEADROOM_ABOVE_SURFACE)
+
+
 static func clear_cache() -> void:
 	_cache.clear()
 
@@ -82,11 +88,12 @@ static func _cache_key(
 	surface_y: float,
 	platform_color: Color
 ) -> String:
-	return "%d_%d_%d_%s" % [
+	return "%d_%d_%d_%s_%d" % [
 		int(map_id),
 		int(level.world_width),
 		int(surface_y * 10.0),
 		str(platform_color),
+		int(MapDefs.MISSION_HEADROOM_ABOVE_GROUND),
 	]
 
 

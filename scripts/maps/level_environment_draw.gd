@@ -7,7 +7,9 @@ static var bake_mode := false
 
 const LOWER_SHAFT_DEPTH := 300.0
 const SKYLINE_BASE_OFFSET := 48.0
+const SKYLINE_HEIGHT_SCALE := 4.0
 const CLOUD_DRIFT := 6.0
+const CLOUD_BANDS := 4
 
 
 static func _round_rect(
@@ -23,7 +25,7 @@ static func _round_rect(
 		if outline.a > 0.0 and outline_width > 0.0:
 			canvas.draw_rect(rect, outline, false, outline_width)
 		return
-	_round_rect(canvas, rect, radius, fill, outline, outline_width)
+	Shapes.rounded_rect(canvas, rect, radius, fill, outline, outline_width)
 
 
 static func draw_mission_backdrop(
@@ -38,11 +40,15 @@ static func draw_mission_backdrop(
 	var scene := BiomeSceneDefs.get_scene(map_id)
 	var width := right - left
 	var sky: Color = scene.get("sky_color", scene.get("sky_top", Color(0.62, 0.82, 0.96)))
-	canvas.draw_rect(Rect2(left, -620.0, width, surface_y + 640.0), sky)
+	var sky_top := MapDefs.mission_sky_top_y(surface_y)
+	canvas.draw_rect(Rect2(left, sky_top, width, surface_y + 640.0 - sky_top), sky)
 
 	var cloud_count: int = int(scene.get("clouds", 3))
 	if cloud_count > 0:
-		_draw_clouds(canvas, left, right, surface_y - 180.0, cloud_count, time, camera_x)
+		var band_step := MapDefs.MISSION_HEADROOM_ABOVE_GROUND / float(CLOUD_BANDS)
+		for band in CLOUD_BANDS:
+			var cloud_y := surface_y - 180.0 - float(band) * band_step
+			_draw_clouds(canvas, left, right, cloud_y, maxi(2, cloud_count), time, camera_x + float(band) * 40.0)
 
 	var water_y_norm: float = float(scene.get("water_y", -1.0))
 	if water_y_norm > 0.0:
@@ -57,12 +63,13 @@ static func draw_mission_backdrop(
 	_draw_skyline(canvas, left, right, surface_y, str(scene.get("skyline", "city")), scene, time)
 
 	if scene.get("window_band", false):
-		_draw_window_band(canvas, left, right, surface_y - 95.0, scene)
+		_draw_window_band(canvas, left, right, surface_y - 95.0 * SKYLINE_HEIGHT_SCALE * 0.25, scene)
 
 	if scene.get("interior_ceiling", false):
+		var ceiling_h := 88.0 * SKYLINE_HEIGHT_SCALE
 		_round_rect(
 			canvas,
-			Rect2(left, -620.0, width, 88.0),
+			Rect2(left, sky_top, width, ceiling_h),
 			0.0,
 			scene.get("wall_accent", Color(0.5, 0.5, 0.52)).darkened(0.15)
 		)
@@ -307,7 +314,7 @@ static func _draw_dunes(canvas: CanvasItem, left: float, right: float, base_y: f
 	var i := 0
 	var x := left - 40.0
 	while x < right + 40.0:
-		var h := 50.0 + float(i % 3) * 28.0
+		var h := (50.0 + float(i % 3) * 28.0) * SKYLINE_HEIGHT_SCALE
 		_round_rect(canvas, Rect2(x, base_y - h, step + 20.0, h + 30.0), 18.0, fill.darkened(0.04 * float(i % 2)))
 		x += step * 0.85
 		i += 1
@@ -321,27 +328,46 @@ static func _draw_city_skyline(
 	scene: Dictionary,
 	harbor: bool
 ) -> void:
-	var building: Color = scene.get("wall_panel", Color(0.92, 0.9, 0.78)).lightened(0.06)
+	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 0.42, 1.25, 0.58)
+	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 0.68, 1.0, 0.78)
+	_draw_city_building_layer(canvas, left, right, base_y, scene, harbor, 1.0, 0.82, 1.0)
+
+
+static func _draw_city_building_layer(
+	canvas: CanvasItem,
+	left: float,
+	right: float,
+	base_y: float,
+	scene: Dictionary,
+	harbor: bool,
+	height_scale: float,
+	width_scale: float,
+	tone: float
+) -> void:
+	var building: Color = scene.get("wall_panel", Color(0.92, 0.9, 0.78)).lightened(0.06 * tone)
 	var accent: Color = scene.get("wall_accent", Color(0.72, 0.76, 0.82))
-	var x := left
+	var x := left - 30.0 * (1.0 - width_scale)
 	var i := 0
 	while x < right + 20.0:
-		var w := 72.0 + float(i % 4) * 26.0
-		var h := 90.0 + float((i * 3) % 5) * 32.0
+		var w := (72.0 + float(i % 4) * 26.0) * width_scale
+		var h := (90.0 + float((i * 3) % 5) * 32.0) * SKYLINE_HEIGHT_SCALE * height_scale
 		_round_rect(canvas, Rect2(x, base_y - h, w, h + 24.0), 8.0, building.darkened(0.03 * float(i % 3)))
-		for row in 4:
-			for col in 3:
+		var row_count := maxi(4, int(h / 52.0))
+		var col_count := maxi(3, int(w / 22.0))
+		for row in row_count:
+			for col in col_count:
 				if bake_mode and (row + col) % 2 == 1:
 					continue
-				if x + 14.0 + col * 18.0 > x + w - 10.0:
+				var wx := x + 14.0 + col * 18.0
+				if wx > x + w - 10.0:
 					break
 				_round_rect(
 					canvas,
-					Rect2(x + 14.0 + col * 18.0, base_y - h + 16.0 + row * 18.0, 10.0, 12.0),
+					Rect2(wx, base_y - h + 16.0 + row * 18.0, 10.0, 12.0),
 					3.0,
 					accent if (row + col + i) % 2 == 0 else accent.lightened(0.25)
 				)
-		if harbor and i % 3 == 0:
+		if harbor and i % 3 == 0 and height_scale > 0.9:
 			_round_rect(canvas, Rect2(x + w * 0.2, base_y - h - 18.0, w * 0.6, 14.0), 6.0, Color(0.88, 0.9, 0.92))
 		x += w + 12.0
 		i += 1
@@ -360,11 +386,11 @@ static func _draw_factory_skyline(
 	var i := 0
 	while x < right + 30.0:
 		var w := 64.0 + float(i % 3) * 20.0
-		var h := 70.0 + float(i % 4) * 24.0
+		var h := (70.0 + float(i % 4) * 24.0) * SKYLINE_HEIGHT_SCALE
 		_round_rect(canvas, Rect2(x, base_y - h, w, h + 20.0), 6.0, body)
-		_round_rect(canvas, Rect2(x + w * 0.35, base_y - h - 48.0, 14.0, 52.0), 5.0, body.darkened(0.08))
+		_round_rect(canvas, Rect2(x + w * 0.35, base_y - h - 48.0 * SKYLINE_HEIGHT_SCALE, 14.0, 52.0 * SKYLINE_HEIGHT_SCALE), 5.0, body.darkened(0.08))
 		if i % 2 == 0:
-			var steam_y := base_y - h - 52.0 - sin(time * 2.0 + i) * 4.0
+			var steam_y := base_y - h - 52.0 * SKYLINE_HEIGHT_SCALE - sin(time * 2.0 + i) * 4.0
 			_round_rect(canvas, Rect2(x + w * 0.3, steam_y, 22.0, 14.0), 7.0, Color(0.85, 0.85, 0.88, 0.35))
 		x += w + 16.0
 		i += 1
@@ -372,20 +398,22 @@ static func _draw_factory_skyline(
 
 static func _draw_castle_skyline(canvas: CanvasItem, left: float, right: float, base_y: float, scene: Dictionary) -> void:
 	var stone: Color = scene.get("wall_panel", Color(0.62, 0.6, 0.56))
-	_round_rect(canvas, Rect2(left, base_y - 70.0, right - left, 90.0), 0.0, stone.darkened(0.06))
+	var wall_h := 90.0 * SKYLINE_HEIGHT_SCALE
+	_round_rect(canvas, Rect2(left, base_y - wall_h + 20.0, right - left, wall_h), 0.0, stone.darkened(0.06))
 	var x := left
 	while x < right:
-		_round_rect(canvas, Rect2(x, base_y - 95.0, 28.0, 28.0), 4.0, stone)
-		_round_rect(canvas, Rect2(x + 34.0, base_y - 110.0, 52.0, 105.0), 6.0, stone.lightened(0.05))
+		_round_rect(canvas, Rect2(x, base_y - 95.0 * SKYLINE_HEIGHT_SCALE, 28.0, 28.0 * SKYLINE_HEIGHT_SCALE), 4.0, stone)
+		_round_rect(canvas, Rect2(x + 34.0, base_y - 110.0 * SKYLINE_HEIGHT_SCALE, 52.0, 105.0 * SKYLINE_HEIGHT_SCALE), 6.0, stone.lightened(0.05))
 		x += 120.0
 
 
 static func _draw_cargo_interior(canvas: CanvasItem, left: float, right: float, surface_y: float, scene: Dictionary) -> void:
 	var wall: Color = scene.get("wall_panel", Color(0.68, 0.62, 0.55))
-	_round_rect(canvas, Rect2(left, surface_y - 130.0, right - left, 118.0), 0.0, wall.darkened(0.05))
+	var wall_h := 118.0 * SKYLINE_HEIGHT_SCALE
+	_round_rect(canvas, Rect2(left, surface_y - wall_h - 12.0, right - left, wall_h), 0.0, wall.darkened(0.05))
 	var x := left + 40.0
 	while x < right - 60.0:
-		_round_rect(canvas, Rect2(x, surface_y - 118.0, 64.0, 72.0), 8.0, wall.lightened(0.06), wall.darkened(0.12), 2.0)
+		_round_rect(canvas, Rect2(x, surface_y - wall_h, 64.0, 72.0 * SKYLINE_HEIGHT_SCALE), 8.0, wall.lightened(0.06), wall.darkened(0.12), 2.0)
 		x += 96.0
 
 
@@ -393,7 +421,7 @@ static func _draw_cloud_skyline(canvas: CanvasItem, left: float, right: float, b
 	var x := left
 	var i := 0
 	while x < right:
-		_draw_puff_cloud(canvas, Vector2(x + 60.0, base_y - 20.0 + sin(time + i) * 6.0), 44.0 + float(i % 3) * 8.0)
+		_draw_puff_cloud(canvas, Vector2(x + 60.0, base_y - 80.0 * SKYLINE_HEIGHT_SCALE + sin(time + i) * 6.0), 44.0 + float(i % 3) * 8.0)
 		x += 140.0
 		i += 1
 
@@ -402,7 +430,7 @@ static func _draw_cave_skyline(canvas: CanvasItem, left: float, right: float, ba
 	var rock: Color = scene.get("wall_panel", Color(0.42, 0.4, 0.36))
 	for i in 8:
 		var cx := left + (right - left) * (float(i) / 7.0)
-		var h := 40.0 + float(i % 3) * 18.0
+		var h := (40.0 + float(i % 3) * 18.0) * SKYLINE_HEIGHT_SCALE
 		canvas.draw_colored_polygon(
 			PackedVector2Array([
 				Vector2(cx - 70.0, base_y + 20.0),
@@ -423,9 +451,9 @@ static func _draw_dam_skyline(
 ) -> void:
 	var concrete: Color = scene.get("wall_panel", Color(0.72, 0.74, 0.76))
 	var cx := (left + right) * 0.5
-	_round_rect(canvas, Rect2(cx - 120.0, base_y - 130.0, 240.0, 150.0), 10.0, concrete)
+	_round_rect(canvas, Rect2(cx - 120.0, base_y - 130.0 * SKYLINE_HEIGHT_SCALE, 240.0, 150.0 * SKYLINE_HEIGHT_SCALE), 10.0, concrete)
 	for i in 4:
-		_round_rect(canvas, Rect2(cx - 90.0 + i * 42.0, base_y - 100.0, 28.0, 60.0), 5.0, concrete.lightened(0.06))
+		_round_rect(canvas, Rect2(cx - 90.0 + i * 42.0, base_y - 100.0 * SKYLINE_HEIGHT_SCALE, 28.0, 60.0 * SKYLINE_HEIGHT_SCALE), 5.0, concrete.lightened(0.06))
 	var mist_y := base_y - 20.0 + sin(time * 1.5) * 3.0
 	_round_rect(canvas, Rect2(cx - 40.0, mist_y, 80.0, 18.0), 9.0, Color(0.85, 0.92, 0.98, 0.45))
 
@@ -443,7 +471,7 @@ static func _draw_volcano_skyline(
 	canvas.draw_colored_polygon(
 		PackedVector2Array([
 			Vector2(cx - 120.0, base_y + 20.0),
-			Vector2(cx, base_y - 140.0),
+			Vector2(cx, base_y - 140.0 * SKYLINE_HEIGHT_SCALE),
 			Vector2(cx + 100.0, base_y + 20.0),
 		]),
 		rock
@@ -451,7 +479,7 @@ static func _draw_volcano_skyline(
 	var glow := 0.55 + sin(time * 2.2) * 0.15
 	_round_rect(
 		canvas,
-		Rect2(cx - 18.0, base_y - 50.0, 36.0, 22.0),
+		Rect2(cx - 18.0, base_y - 50.0 * SKYLINE_HEIGHT_SCALE, 36.0, 22.0),
 		8.0,
 		Color(1.0, 0.45 * glow, 0.12, 0.75)
 	)

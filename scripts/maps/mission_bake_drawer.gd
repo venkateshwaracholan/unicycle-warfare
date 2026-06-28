@@ -13,8 +13,9 @@ var bake_scale_x := 1.0
 
 func _draw() -> void:
 	LevelEnvironmentDraw.bake_mode = true
+	var bake_y_min := MissionEnvironmentBake.bake_y_min_for(surface_y)
 	draw_set_transform(
-		Vector2(-bake_left * bake_scale_x, -MissionEnvironmentBake.BAKE_Y_MIN),
+		Vector2(-bake_left * bake_scale_x, -bake_y_min),
 		0.0,
 		Vector2(bake_scale_x, 1.0)
 	)
