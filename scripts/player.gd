@@ -11,18 +11,18 @@ const Shapes := preload("res://scripts/draw_shapes.gd")
 const UnicycleRig := preload("res://scripts/unicycle/unicycle_rig.gd")
 
 const MAX_HEALTH := 100
-const PEDAL_ACCEL := 16.0
-const PEDAL_TURN_ACCEL := 40.0
-const TURN_BRAKE := 150.0
-const REVERSAL_SPEED_GATE := 5.0
+const PEDAL_ACCEL := 32.0
+const PEDAL_TURN_ACCEL := 105.0
+const TURN_BRAKE := 1200.0
+const REVERSAL_SPEED_GATE := 40.0
 const PEDAL_COAST := 7.0
 const GRAVITY_LEAN := 4.0
-const INERTIA_FROM_SPEED := 0.001
+const INERTIA_FROM_SPEED := 0.00085
 const INERTIA_FROM_ACCEL := 0.004
 const INERTIA_ACCEL_STRESS_MIN := 0.08
-const MOVE_TILT := 16.0
-const MOVE_TILT_STRESS_MIN := 0.06
-const TURN_WOBBLE_SCALE := 0.8
+const MOVE_TILT := 25.0
+const MOVE_TILT_STRESS_MIN := 0.18
+const TURN_WOBBLE_SCALE := 0.92
 const TURN_STRESS_ACCEL_REF := 85.0
 const BALANCE_SAFE_ANGLE := 0.13
 const BALANCE_RECOVERY := 11.0
@@ -35,7 +35,7 @@ const DEFAULT_WEAPON := WeaponDefs.Type.ROCKET
 const RECOIL_SCALE := 0.95
 const REGEN_DELAY := 2.5
 const REGEN_RATE := 8.0
-const MAX_SPEED := 26.0
+const MAX_SPEED := 200.0
 const ARENA_MIN_X := 100.0
 const ARENA_MAX_X := 1180.0
 
@@ -49,6 +49,7 @@ var _time_since_hit := REGEN_DELAY
 var _respawn_timer := 0.0
 var _ground_y := 490.0
 var _last_wheel_x := 0.0
+var _move_vx := 0.0
 var _last_vel_x := 0.0
 var _prev_lean := 0.0
 var _sustained_balance_push := 0.0
@@ -105,6 +106,7 @@ func _ready() -> void:
 	wheel.max_contacts_reported = 4
 	wheel.contact_monitor = true
 	wheel.body_entered.connect(_on_wheel_body_entered)
+	wheel.top_level = true
 	_rig.sync_pose()
 	$Wheel/Pelvis/UpperBody/Visual.team_color = team_color
 	wheel_visual.wheel_style = CharacterVisual.WheelStyle.MILITARY if player_id == 1 else CharacterVisual.WheelStyle.BMX
@@ -190,8 +192,6 @@ func _physics_process(delta: float) -> void:
 	_weapon_user.tick(delta)
 	_time_since_hit += delta
 
-	global_position = wheel.global_position
-	pickup_area.global_position = pelvis.global_position + Vector2(0, -20)
 	_explosion_impact_meter = FallConsequences.decay_explosion_meter(_explosion_impact_meter, delta)
 	_ground_bounce_timer = maxf(0.0, _ground_bounce_timer - delta)
 
@@ -219,20 +219,71 @@ func _physics_process(delta: float) -> void:
 		_is_grounded(),
 		absf(_current_lean) if state == State.RIDING else 0.0
 	)
+	global_position = wheel.global_position
+	pickup_area.global_position = pelvis.global_position + Vector2(0, -20)
 	queue_redraw()
+
+
+func _clamp_move_vx() -> void:
+	_move_vx = clampf(_move_vx, -MAX_SPEED, MAX_SPEED)
+
+
+func _apply_wheel_impulse(impulse: Vector2) -> void:
+	if wheel.mass <= 0.0:
+		return
+	_move_vx = clampf(_move_vx + impulse.x / wheel.mass, -MAX_SPEED, MAX_SPEED)
+	var vel := wheel.linear_velocity
+	vel.y += impulse.y / wheel.mass
+	vel.x = 0.0
+	wheel.linear_velocity = vel
+	wheel.sleeping = false
+
+
+func _apply_horizontal_move(delta: float) -> void:
+	if absf(_move_vx) < 0.0001:
+		return
+	var pos := wheel.global_position
+	pos.x += _move_vx * delta
+	wheel.global_position = pos
+	wheel.sleeping = false
+
+
+func _stabilize_physics(delta: float) -> void:
+	_clamp_move_vx()
+
+	if state == State.RIDING:
+		_refresh_ground_height()
+		_snap_to_ground()
+		_apply_horizontal_move(delta)
+
+	var pos := wheel.global_position
+	var bounds := _arena_bounds()
+	if pos.x < bounds.x:
+		pos.x = bounds.x
+		wheel.global_position = pos
+		if _move_vx < 0.0:
+			_move_vx = 0.0
+	elif pos.x > bounds.y:
+		pos.x = bounds.y
+		wheel.global_position = pos
+		if _move_vx > 0.0:
+			_move_vx = 0.0
+
+	wheel.linear_velocity.x = 0.0
+	_clamp_move_vx()
 
 func _apply_environment_forces(delta: float) -> void:
 	var env := MapEnvironment.find_in_tree(get_tree())
 	if env == null:
 		return
 	var sample := env.sample(wheel.global_position.x, wheel.global_position.y)
-	var vx := wheel.linear_velocity.x
+	var vx := _move_vx
 	vx = lerpf(vx, vx + float(sample.get("velocity_x", 0.0)), 1.0 - exp(-3.0 * delta))
-	wheel.linear_velocity.x = clampf(vx, -MAX_SPEED * 1.15, MAX_SPEED * 1.15)
+	_move_vx = clampf(vx, -MAX_SPEED, MAX_SPEED)
 	var impulse_x: float = float(sample.get("impulse_x", 0.0))
 	var impulse_y: float = float(sample.get("impulse_y", 0.0))
 	if absf(impulse_x) > 0.01 or absf(impulse_y) > 0.01:
-		wheel.apply_central_impulse(Vector2(impulse_x, impulse_y) * delta * 0.35)
+		_apply_wheel_impulse(Vector2(impulse_x, impulse_y) * delta * 0.35)
 	var push: float = float(sample.get("balance_push", 0.0))
 	if absf(push) > 0.001:
 		_rig.balance_angular_vel += push * delta
@@ -249,23 +300,20 @@ func _process_riding(delta: float) -> void:
 
 	_process_sustained_recoil(delta)
 
-	var vx := wheel.linear_velocity.x
+	var vx := _move_vx
 	if _current_lean != 0.0:
 		var target := _current_lean * MAX_SPEED
 		var reversing := absf(vx) > REVERSAL_SPEED_GATE and signf(_current_lean) != signf(vx)
 		if reversing:
 			var bleed := minf(absf(vx), TURN_BRAKE * delta)
 			vx -= signf(vx) * bleed
-			# Bleed to a stop before accelerating the other way — avoids physics twitches.
-			if absf(vx) > REVERSAL_SPEED_GATE:
-				target = 0.0
 		var rate := PEDAL_TURN_ACCEL
 		if not reversing and absf(vx - target) < MAX_SPEED * 0.2:
 			rate = PEDAL_ACCEL
 		vx = _smooth_wheel_speed(vx, target, rate, delta)
 	else:
 		vx = _smooth_wheel_speed(vx, 0.0, PEDAL_COAST, delta)
-	wheel.linear_velocity.x = clampf(vx, -MAX_SPEED, MAX_SPEED)
+	_move_vx = clampf(vx, -MAX_SPEED, MAX_SPEED)
 
 	_update_balance(delta)
 
@@ -273,17 +321,24 @@ func _smooth_wheel_speed(current: float, target: float, rate: float, delta: floa
 	return lerpf(current, target, 1.0 - exp(-rate * delta))
 
 
-func _compute_turn_stress(vx: float, ax: float) -> float:
-	var stress := 0.0
+func _compute_turn_stress(vx: float) -> float:
+	var stress := clampf(absf(_current_lean), 0.0, 1.0) * 0.26
 	if _current_lean != 0.0 and absf(vx) > REVERSAL_SPEED_GATE and signf(_current_lean) != signf(vx):
-		stress = maxf(stress, clampf(absf(vx) / MAX_SPEED, 0.35, 1.0))
+		stress = maxf(stress, clampf(absf(vx) / MAX_SPEED, 0.35, 0.7))
 	if _prev_lean != 0.0 and _current_lean != 0.0 and signf(_prev_lean) != signf(_current_lean):
-		stress = maxf(stress, 0.8)
-	if absf(ax) > 1.0:
-		var accel_stress := clampf(absf(ax) / TURN_STRESS_ACCEL_REF, 0.0, 1.0)
-		stress = maxf(stress, accel_stress * clampf(absf(_current_lean), 0.0, 1.0))
+		stress = maxf(stress, 0.7)
 	_prev_lean = _current_lean
 	return stress
+
+
+func _pedal_tilt_scale(vx: float) -> float:
+	if _current_lean == 0.0:
+		return 0.0
+	var reversing := absf(vx) > REVERSAL_SPEED_GATE and signf(_current_lean) != signf(vx)
+	if reversing:
+		return lerpf(MOVE_TILT_STRESS_MIN, 0.72, clampf(absf(vx) / MAX_SPEED, 0.35, 0.72))
+	# Steady lean while pedaling — no ramp as wheel speed builds.
+	return 0.48
 
 
 func _safe_zone_factor() -> float:
@@ -297,16 +352,20 @@ func _update_balance(delta: float) -> void:
 	var wdata := WeaponDefs.get_data(weapon_type)
 	var weight: float = wdata["weight"]
 	var weight_mult := 1.0 + weight * 0.45
-	var vx := wheel.linear_velocity.x
+	var vx := _move_vx
 	var ax := (vx - _last_vel_x) / maxf(delta, 0.001)
 	_last_vel_x = vx
 
-	var turn_stress := _compute_turn_stress(vx, ax)
-	var accel_inertia_scale := lerpf(INERTIA_ACCEL_STRESS_MIN, 1.0, turn_stress) * TURN_WOBBLE_SCALE
+	var turn_stress := _compute_turn_stress(vx)
+	var accel_stress := 0.0
+	if absf(ax) > 1.0:
+		accel_stress = clampf(absf(ax) / TURN_STRESS_ACCEL_REF, 0.0, 0.55)
+	var wobble_stress := maxf(turn_stress, accel_stress * clampf(absf(_current_lean), 0.0, 1.0))
+	var accel_inertia_scale := lerpf(INERTIA_ACCEL_STRESS_MIN, 1.0, wobble_stress) * TURN_WOBBLE_SCALE
 
 	# Wheel right → rider falls left; wheel left → rider falls right.
-	var inertia := -vx * INERTIA_FROM_SPEED - ax * INERTIA_FROM_ACCEL * accel_inertia_scale
-	var tilt_scale := lerpf(MOVE_TILT_STRESS_MIN, 1.0, turn_stress) if _current_lean != 0.0 else 0.0
+	var inertia := -vx * INERTIA_FROM_SPEED - clampf(ax, -TURN_STRESS_ACCEL_REF, TURN_STRESS_ACCEL_REF) * INERTIA_FROM_ACCEL * accel_inertia_scale
+	var tilt_scale := _pedal_tilt_scale(vx)
 	var move_tilt := -_current_lean * MOVE_TILT * tilt_scale * TURN_WOBBLE_SCALE
 	# Gravity slowly tips the rider further in whatever direction they lean.
 	var gravity := sin(_rig.balance_angle) * GRAVITY_LEAN * weight_mult
@@ -349,7 +408,7 @@ func _update_fall_state() -> void:
 func _classify_crash() -> bool:
 	return FallConsequences.is_hard_crash(
 		_rig.balance_angular_vel,
-		wheel.linear_velocity.length()
+		Vector2(_move_vx, wheel.linear_velocity.y).length()
 	)
 
 
@@ -370,8 +429,8 @@ func apply_fall_bounce(bounce: Dictionary) -> void:
 	var up: float = bounce.get("up", FallConsequences.BOUNCE_UP_SOFT)
 	var horiz_base: float = bounce.get("horiz_base", FallConsequences.BOUNCE_HORIZ_SOFT)
 	var spin: float = float(bounce.get("spin", FallConsequences.BOUNCE_SPIN_SOFT)) * -fall_sign
-	var horiz := -fall_sign * horiz_base + wheel.linear_velocity.x * 0.25
-	wheel.apply_central_impulse(Vector2(horiz, -up))
+	var horiz := -fall_sign * horiz_base + _move_vx * 0.25
+	_apply_wheel_impulse(Vector2(horiz, -up))
 	_rig.balance_angular_vel = spin
 	_ground_bounce_timer = float(bounce.get("duration", FallConsequences.BOUNCE_TIME_SOFT))
 	_rig.enforce_balance_limits()
@@ -441,11 +500,7 @@ func _snap_to_ground() -> void:
 		vel.y = 0.0
 
 	wheel.global_position = pos
-	wheel.linear_velocity = vel
-
-func _clamp_horizontal_speed() -> void:
-	var vel := wheel.linear_velocity
-	vel.x = clampf(vel.x, -MAX_SPEED, MAX_SPEED)
+	vel.x = 0.0
 	wheel.linear_velocity = vel
 
 func _update_body_collision() -> void:
@@ -457,29 +512,6 @@ func _on_wheel_body_entered(body: Node) -> void:
 		var vel := wheel.linear_velocity
 		vel.y = minf(vel.y, 0.0)
 		wheel.linear_velocity = vel
-
-func _stabilize_physics(delta: float) -> void:
-	var vel := wheel.linear_velocity
-	var pos := wheel.global_position
-	_clamp_horizontal_speed()
-	vel = wheel.linear_velocity
-
-	if state == State.RIDING:
-		_refresh_ground_height()
-		_snap_to_ground()
-
-	pos = wheel.global_position
-	var bounds := _arena_bounds()
-	if pos.x < bounds.x:
-		pos.x = bounds.x
-		wheel.global_position = pos
-		if wheel.linear_velocity.x < 0.0:
-			wheel.linear_velocity.x = 0.0
-	elif pos.x > bounds.y:
-		pos.x = bounds.y
-		wheel.global_position = pos
-		if wheel.linear_velocity.x > 0.0:
-			wheel.linear_velocity.x = 0.0
 
 func _try_pickup_weapon() -> bool:
 	for area in pickup_area.get_overlapping_areas():
@@ -521,7 +553,7 @@ func _try_attack() -> void:
 	match result.get("category"):
 		WeaponDefs.Category.MELEE:
 			if result.get("melee_lunge", false):
-				wheel.apply_central_impulse(aim_dir * 80.0)
+				_apply_wheel_impulse(aim_dir * 80.0)
 			_apply_recoil(-aim_dir, data)
 		WeaponDefs.Category.THROWABLE, WeaponDefs.Category.RANGED:
 			_apply_recoil(aim_dir, data)
@@ -545,7 +577,7 @@ func _apply_recoil(aim_dir: Vector2, data: Dictionary) -> void:
 		force *= 0.5
 		lift = -force * 0.6
 
-	wheel.apply_central_impulse(recoil_dir * force + Vector2(0, -lift))
+	_apply_wheel_impulse(recoil_dir * force + Vector2(0, -lift))
 	if state == State.RIDING:
 		_rig.balance_angular_vel += torque * signf(recoil_dir.x) * 0.00065 * RECOIL_SCALE
 		_rig.enforce_balance_limits()
@@ -561,8 +593,8 @@ func _recoil_multiplier(recoil_dir: Vector2) -> float:
 func _update_move_facing() -> void:
 	if _current_lean != 0.0:
 		_rig.set_facing(_current_lean)
-	elif absf(wheel.linear_velocity.x) > 6.0:
-		_rig.set_facing(wheel.linear_velocity.x)
+	elif absf(_move_vx) > MAX_SPEED * 0.03:
+		_rig.set_facing(_move_vx)
 
 
 func _update_aim_facing() -> void:
@@ -581,7 +613,7 @@ func take_damage(amount: int, from: Node2D = null) -> void:
 	health -= amount
 	_time_since_hit = 0.0
 	health_changed.emit(health, MAX_HEALTH)
-	wheel.apply_central_impulse(Vector2(randf_range(-20, 20), -35))
+	_apply_wheel_impulse(Vector2(randf_range(-20, 20), -35))
 	_rig.balance_angular_vel += randf_range(-1.8, 1.8)
 
 	if health <= 0:
@@ -603,6 +635,7 @@ func _finish_respawn() -> void:
 	global_position = spawn_position
 	wheel.global_position = _wheel_spawn_pos()
 	_last_wheel_x = wheel.global_position.x
+	_move_vx = 0.0
 	wheel.linear_velocity = Vector2.ZERO
 	_rig.set_balance(0.0, 0.0)
 	_is_fallen = false
@@ -654,7 +687,7 @@ func receive_explosion_blast(
 		return
 	var impulse := push_dir * knockback * falloff
 	var scaled := FallConsequences.explosion_displacement(impulse)
-	wheel.apply_central_impulse(scaled)
+	_apply_wheel_impulse(scaled)
 	_rig.balance_angular_vel += scaled.x * 0.0012
 	if FallConsequences.try_drop_weapon_on_explosion(self, impulse):
 		last_fall_message = FallConsequences.get_status_message(true, true)
@@ -673,7 +706,7 @@ func apply_explosion_knockback(impulse: Vector2) -> void:
 	if state != State.RIDING:
 		return
 	var scaled := FallConsequences.explosion_displacement(impulse)
-	wheel.apply_central_impulse(scaled)
+	_apply_wheel_impulse(scaled)
 	_rig.balance_angular_vel += scaled.x * 0.0012
 	if FallConsequences.try_drop_weapon_on_explosion(self, impulse):
 		last_fall_message = FallConsequences.get_status_message(true, true)
@@ -693,11 +726,11 @@ func _notify_combat_message(text: String) -> void:
 
 func apply_harpoon_pull(from: Node2D, hit_pos: Vector2) -> void:
 	var dir := (from.global_position - global_position).normalized()
-	wheel.apply_central_impulse(dir * 280.0)
+	_apply_wheel_impulse(dir * 280.0)
 
 func apply_harpoon_recoil_pull(hit_pos: Vector2) -> void:
 	var dir := (hit_pos - global_position).normalized()
-	wheel.apply_central_impulse(dir * 200.0)
+	_apply_wheel_impulse(dir * 200.0)
 
 func _draw() -> void:
 	if not is_instance_valid(pelvis) or _rig == null:
