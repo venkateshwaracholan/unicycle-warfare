@@ -11,11 +11,12 @@ const Shapes := preload("res://scripts/draw_shapes.gd")
 const UnicycleRig := preload("res://scripts/unicycle/unicycle_rig.gd")
 
 const MAX_HEALTH := 100
-const PEDAL_ACCEL := 32.0
-const PEDAL_TURN_ACCEL := 105.0
-const TURN_BRAKE := 1200.0
+const SPEED_ACCEL := 340.0
+const SPEED_BRAKE := 500.0
+const SPEED_COAST := 105.0
+const REVERSAL_CARRY_ABOVE := 0.48
+const REVERSAL_CARRY_BRAKE := 0.24
 const REVERSAL_SPEED_GATE := 40.0
-const PEDAL_COAST := 7.0
 const GRAVITY_LEAN := 4.0
 const INERTIA_FROM_SPEED := 0.00085
 const INERTIA_FROM_ACCEL := 0.004
@@ -301,24 +302,53 @@ func _process_riding(delta: float) -> void:
 	_process_sustained_recoil(delta)
 
 	var vx := _move_vx
-	if _current_lean != 0.0:
-		var target := _current_lean * MAX_SPEED
-		var reversing := absf(vx) > REVERSAL_SPEED_GATE and signf(_current_lean) != signf(vx)
-		if reversing:
-			var bleed := minf(absf(vx), TURN_BRAKE * delta)
-			vx -= signf(vx) * bleed
-		var rate := PEDAL_TURN_ACCEL
-		if not reversing and absf(vx - target) < MAX_SPEED * 0.2:
-			rate = PEDAL_ACCEL
-		vx = _smooth_wheel_speed(vx, target, rate, delta)
-	else:
-		vx = _smooth_wheel_speed(vx, 0.0, PEDAL_COAST, delta)
-	_move_vx = clampf(vx, -MAX_SPEED, MAX_SPEED)
+	var target := _pedal_speed_target(vx)
+	_move_vx = clampf(_integrate_speed(vx, target, delta), -MAX_SPEED, MAX_SPEED)
 
 	_update_balance(delta)
 
-func _smooth_wheel_speed(current: float, target: float, rate: float, delta: float) -> float:
-	return lerpf(current, target, 1.0 - exp(-rate * delta))
+func _pedal_speed_target(vx: float) -> float:
+	if _current_lean == 0.0:
+		return 0.0
+	if _is_wrong_way(vx):
+		var t := 1.0 - clampf(absf(vx) / (MAX_SPEED * 0.28), 0.0, 1.0)
+		return _current_lean * MAX_SPEED * t * t
+	return _current_lean * MAX_SPEED
+
+
+func _integrate_speed(vx: float, target: float, delta: float) -> float:
+	var diff := target - vx
+	if absf(diff) < 0.01:
+		return target
+
+	var braking := signf(vx) != 0.0 and signf(diff) != signf(vx)
+	var rate: float
+	if _current_lean == 0.0:
+		rate = SPEED_COAST
+	elif braking:
+		rate = SPEED_BRAKE
+		if absf(vx) > MAX_SPEED * REVERSAL_CARRY_ABOVE:
+			var carry_t := clampf(
+				(absf(vx) - MAX_SPEED * REVERSAL_CARRY_ABOVE) / (MAX_SPEED * 0.32),
+				0.0,
+				1.0
+			)
+			rate *= lerpf(1.0, REVERSAL_CARRY_BRAKE, carry_t)
+	elif absf(vx) < MAX_SPEED * 0.14:
+		rate = SPEED_ACCEL * lerpf(0.38, 1.0, absf(vx) / (MAX_SPEED * 0.14))
+	else:
+		rate = SPEED_ACCEL
+
+	var step := minf(absf(diff), rate * delta)
+	return vx + signf(diff) * step
+
+
+func _is_wrong_way(vx: float) -> bool:
+	return _current_lean != 0.0 and signf(_current_lean) != signf(vx) and absf(vx) > 1.0
+
+
+func _is_reversing_pedal(vx: float) -> bool:
+	return _is_wrong_way(vx) and absf(vx) > REVERSAL_SPEED_GATE
 
 
 func _compute_turn_stress(vx: float) -> float:
@@ -334,8 +364,7 @@ func _compute_turn_stress(vx: float) -> float:
 func _pedal_tilt_scale(vx: float) -> float:
 	if _current_lean == 0.0:
 		return 0.0
-	var reversing := absf(vx) > REVERSAL_SPEED_GATE and signf(_current_lean) != signf(vx)
-	if reversing:
+	if _is_reversing_pedal(vx):
 		return lerpf(MOVE_TILT_STRESS_MIN, 0.72, clampf(absf(vx) / MAX_SPEED, 0.35, 0.72))
 	# Steady lean while pedaling — no ramp as wheel speed builds.
 	return 0.48
@@ -591,6 +620,7 @@ func _recoil_multiplier(recoil_dir: Vector2) -> float:
 	return 1.0
 
 func _update_move_facing() -> void:
+	# Body/gun face pedal input immediately; wheel velocity may still carry the other way.
 	if _current_lean != 0.0:
 		_rig.set_facing(_current_lean)
 	elif absf(_move_vx) > MAX_SPEED * 0.03:
