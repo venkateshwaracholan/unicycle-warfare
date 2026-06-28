@@ -14,6 +14,7 @@ var platforms: Array[Dictionary] = []
 var markers: Dictionary = {}
 var spawn_points: Array[Vector2] = []
 var enemy_zones: Array[Dictionary] = []
+var safe_zone_end_x := 0.0
 var props: Array[Dictionary] = []
 var hazards: Array[Dictionary] = []
 
@@ -54,6 +55,8 @@ func build(map_id: MapDefs.MapId) -> void:
 	world_left = 80.0
 
 	_finalize_spawns()
+	_finalize_safe_zone()
+	_apply_safe_zone_to_enemy_zones()
 
 
 func _place_chunk(chunk: Dictionary, origin_x: float) -> void:
@@ -161,6 +164,34 @@ func _finalize_spawns() -> void:
 	]
 
 
+func _finalize_safe_zone() -> void:
+	safe_zone_end_x = world_left + MapDefs.PLAYER_SAFE_ZONE_MIN_WIDTH
+	for section in sections:
+		if int(section.get("role", 0)) == LevelChunkDefs.ChunkRole.SPAWN:
+			safe_zone_end_x = maxf(safe_zone_end_x, float(section.get("x1", world_left)))
+			break
+	if not spawn_points.is_empty():
+		var entry_x := float(spawn_points[0].x)
+		for sp in spawn_points:
+			entry_x = minf(entry_x, sp.x)
+		safe_zone_end_x = maxf(safe_zone_end_x, entry_x + MapDefs.PLAYER_SAFE_ZONE_MIN_WIDTH)
+
+
+func _apply_safe_zone_to_enemy_zones() -> void:
+	var filtered: Array[Dictionary] = []
+	for zone in enemy_zones:
+		var x0 := maxf(_pf(zone, "x0"), safe_zone_end_x)
+		var x1 := _pf(zone, "x1")
+		if x1 <= safe_zone_end_x + 16.0:
+			continue
+		filtered.append({
+			"x0": x0,
+			"x1": x1,
+			"role": zone.get("role", 0),
+		})
+	enemy_zones = filtered
+
+
 func ground_surface_at(world_x: float) -> float:
 	var surface_base := base_ground_y - 20.0
 	var best_y := surface_base + 9999.0
@@ -184,17 +215,17 @@ func resolve_marker(marker_id: String) -> Vector2:
 func enemy_spawn_positions(count: int, seed_index: int = 0) -> Array[Vector2]:
 	var positions: Array[Vector2] = []
 	if enemy_zones.is_empty():
-		var cx := world_left + (world_right - world_left) * 0.65
+		var cx := maxf(world_left + (world_right - world_left) * 0.65, safe_zone_end_x + 200.0)
 		for i in count:
 			var t := float(i % 5) / 4.0 if count > 1 else 0.5
-			var x := lerpf(cx - 200.0, cx + 200.0, t)
+			var x := maxf(lerpf(cx - 200.0, cx + 200.0, t), safe_zone_end_x)
 			positions.append(Vector2(x, ground_surface_at(x)))
 		return positions
 
 	for i in count:
 		var zone: Dictionary = enemy_zones[(seed_index + i) % enemy_zones.size()]
 		var t := float(i % 5) / 4.0 if count > 1 else 0.5
-		var x := lerpf(_pf(zone, "x0"), _pf(zone, "x1"), t)
+		var x := maxf(lerpf(_pf(zone, "x0"), _pf(zone, "x1"), t), safe_zone_end_x)
 		positions.append(Vector2(x, ground_surface_at(x)))
 	return positions
 

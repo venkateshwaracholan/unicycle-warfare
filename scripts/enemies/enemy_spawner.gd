@@ -51,15 +51,19 @@ func _spawn_default_wave() -> void:
 		_spawn_index += 1
 
 func _next_spawn_position() -> Vector2:
+	var pos: Vector2
 	if _arena.mission_level and _arena.level != null:
 		var positions := _arena.level.enemy_spawn_positions(maxi(_spawn_index + 1, 5), _spawn_index)
-		return positions[_spawn_index % positions.size()]
-	var positions := MapDefs.enemy_spawn_positions(
-		_arena.map_id,
-		_arena.ground_surface_y(),
-		maxi(_spawn_index + 1, 5)
-	)
-	return positions[_spawn_index % positions.size()]
+		pos = positions[_spawn_index % positions.size()]
+	else:
+		var positions := MapDefs.enemy_spawn_positions(
+			_arena.map_id,
+			_arena.ground_surface_y(),
+			maxi(_spawn_index + 1, 5)
+		)
+		pos = positions[_spawn_index % positions.size()]
+	pos.x = maxf(pos.x, _arena.player_safe_zone_end_x())
+	return pos
 
 func _spawn_enemy(type: EnemyDefs.Type, pos: Vector2, boss: bool = false) -> void:
 	var enemy := ENEMY_SCENE.instantiate()

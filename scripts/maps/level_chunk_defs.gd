@@ -52,6 +52,8 @@ static func build(role: ChunkRole, label: String, opts: Dictionary = {}) -> Dict
 
 static func _default_enemy_zone(role: ChunkRole) -> Dictionary:
 	match role:
+		ChunkRole.SPAWN, ChunkRole.EXTRACT:
+			return {}
 		ChunkRole.COMBAT, ChunkRole.OBJECTIVE, ChunkRole.LARGE_COMBAT, ChunkRole.BOSS:
 			return {"x0": 0.12, "x1": 0.88}
 		_:

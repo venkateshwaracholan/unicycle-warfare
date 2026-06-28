@@ -23,6 +23,9 @@ const MARKER_ESCORT_START := "escort_start"
 const MARKER_ESCORT_END := "escort_end"
 const MARKER_BOSS := "boss"
 
+## World-space distance east of the leftmost player spawn where enemies may appear.
+const PLAYER_SAFE_ZONE_MIN_WIDTH := 720.0
+
 const MAPS := {
 	MapId.DESERT: {
 		"name": "Desert",
@@ -252,12 +255,14 @@ static func resolve_marker(map_id: MapId, marker_id: String, ground_surface_y: f
 static func enemy_spawn_positions(map_id: MapId, ground_surface_y: float, count: int) -> Array[Vector2]:
 	var map := get_map(map_id)
 	var spawns: Array = map.get("spawn_points", [Vector2(220, 420), Vector2(1060, 420)])
+	var entry_x := minf(float(spawns[0].x), float(spawns[1].x))
+	var safe_end := entry_x + PLAYER_SAFE_ZONE_MIN_WIDTH
 	var far_x := maxf(float(spawns[0].x), float(spawns[1].x))
-	var zone_min := far_x - 140.0
+	var zone_min := maxf(far_x - 140.0, safe_end)
 	var zone_max := minf(far_x + 60.0, 1180.0)
 	var positions: Array[Vector2] = []
 	for i in count:
 		var t := float(i % 5) / 4.0 if count > 1 else 0.5
-		var x := lerpf(zone_min, zone_max, t)
+		var x := maxf(lerpf(zone_min, zone_max, t), safe_end)
 		positions.append(Vector2(x, ground_surface_y))
 	return positions

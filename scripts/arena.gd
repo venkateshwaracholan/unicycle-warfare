@@ -54,6 +54,15 @@ func resolve_marker(marker_id: String) -> Vector2:
 	return MapDefs.resolve_marker(map_id, marker_id, ground_surface_y())
 
 
+func player_safe_zone_end_x() -> float:
+	if mission_level and level != null:
+		return level.safe_zone_end_x
+	var entry_x := world_left()
+	for sp in spawn_points:
+		entry_x = minf(entry_x, sp.x)
+	return entry_x + MapDefs.PLAYER_SAFE_ZONE_MIN_WIDTH
+
+
 func get_section_label(world_x: float) -> String:
 	if mission_level and level != null:
 		return level.section_at(world_x).get("label", "")
