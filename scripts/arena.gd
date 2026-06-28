@@ -169,8 +169,8 @@ func _refresh_biome(map: Dictionary) -> void:
 		"platform": map.get("platform", Color(0.5, 0.45, 0.4)),
 	}
 	var world_w := world_width()
-	_backdrop.configure(map_id, surface, palette, world_w, mission_level)
-	_foreground.configure(map_id, surface, palette, world_w, mission_level)
+	_backdrop.configure(map_id, surface, palette, world_w, mission_level, world_left(), world_right())
+	_foreground.configure(map_id, surface, palette, world_w, mission_level, world_left(), world_right())
 	if not mission_level:
 		_environment.configure(map_id)
 	_spawn_destructibles(map)
@@ -234,6 +234,8 @@ func _spawn_destructibles(_map: Dictionary) -> void:
 			if prop_type not in ["barrel", "ammo_crate"]:
 				continue
 			var pos: Vector2 = prop.get("pos", Vector2.ZERO)
+			if pos.x < level.world_left or pos.x > level.world_right:
+				continue
 			var barrel := DestructibleProp.new()
 			barrel.prop_type = prop_type
 			barrel.draw_scale = float(prop.get("scale", 1.0))
@@ -310,8 +312,8 @@ func _draw_arena_mode(map: Dictionary) -> void:
 
 func _draw_mission_level(map: Dictionary) -> void:
 	var surface := ground_surface_y()
-	var left := level.world_left - 400.0
-	var width := level.world_width + 800.0
+	var left := level.world_left
+	var width := level.world_right - level.world_left
 	draw_rect(Rect2(left, -600, width, surface + 600), map.get("sky", Color(0.62, 0.78, 0.62)))
 	draw_rect(Rect2(left, surface + 40, width, 800), map.get("ground", Color(0.42, 0.3, 0.18)))
 
@@ -348,6 +350,8 @@ func _draw_mission_props(map: Dictionary, surface: float) -> void:
 		if prop_type in ["barrel", "ammo_crate"]:
 			continue
 		var pos: Vector2 = prop.get("pos", Vector2.ZERO)
+		if pos.x < level.world_left or pos.x > level.world_right:
+			continue
 		var scale: float = float(prop.get("scale", 1.0))
 		BiomePropDraw.draw_prop(self, prop_type, pos, surface, scale, _arena_time, palette)
 

@@ -24,7 +24,10 @@ const MARKER_ESCORT_END := "escort_end"
 const MARKER_BOSS := "boss"
 
 ## World-space distance east of the leftmost player spawn where enemies may appear.
-const PLAYER_SAFE_ZONE_MIN_WIDTH := 720.0
+const PLAYER_SAFE_ZONE_MIN_WIDTH := 960.0
+
+## Temporary — single-height platforms for navigation testing.
+const FLAT_MISSION_LEVELS := true
 
 const MAPS := {
 	MapId.DESERT: {

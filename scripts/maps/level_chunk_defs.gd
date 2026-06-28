@@ -61,6 +61,8 @@ static func _default_enemy_zone(role: ChunkRole) -> Dictionary:
 
 
 static func _platforms_for_role(role: ChunkRole, width: float, opts: Dictionary) -> Array:
+	if MapDefs.FLAT_MISSION_LEVELS:
+		return _flat(width)
 	if opts.has("platforms"):
 		return opts.platforms
 	match role:
