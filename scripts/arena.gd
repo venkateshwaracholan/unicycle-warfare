@@ -16,6 +16,8 @@ var _arena_time := 0.0
 var _destructibles: Array[Node] = []
 var _collision_root: Node2D
 var _camera_scroll := 0.0
+var _mission_bake_sprite: Sprite2D
+var _mission_baking := false
 
 
 func ground_surface_y() -> float:
@@ -75,6 +77,8 @@ func get_environment() -> MapEnvironment:
 
 func set_camera_scroll(x: float) -> void:
 	_camera_scroll = x
+	if mission_level:
+		return
 	if _backdrop:
 		_backdrop.set_world_scroll(x)
 	if _foreground:
@@ -116,14 +120,16 @@ func _process(delta: float) -> void:
 	_arena_time += delta
 	if _environment == null or _backdrop == null:
 		return
+	if mission_level:
+		return
 	var scroll := _environment.scroll_offset
-	if not mission_level:
-		_backdrop.set_scroll(scroll)
-		_foreground.set_scroll(scroll)
+	_backdrop.set_scroll(scroll)
+	_foreground.set_scroll(scroll)
 	queue_redraw()
 
 
 func _configure_map() -> void:
+	_clear_mission_bake()
 	spawn_points.clear()
 	weapon_spawns.clear()
 	level = null
@@ -158,6 +164,7 @@ func _configure_mission_level(map: Dictionary) -> void:
 	_refresh_biome(map)
 	if _environment:
 		_environment.configure(map_id, level.hazards if not level.hazards.is_empty() else null)
+	call_deferred("_bake_mission_environment", map)
 
 
 func _refresh_biome(map: Dictionary) -> void:
@@ -169,12 +176,23 @@ func _refresh_biome(map: Dictionary) -> void:
 		"platform": map.get("platform", Color(0.5, 0.45, 0.4)),
 	}
 	var world_w := world_width()
-	_backdrop.configure(map_id, surface, palette, world_w, mission_level, world_left(), world_right())
-	_foreground.configure(map_id, surface, palette, world_w, mission_level, world_left(), world_right())
+	_backdrop.configure(map_id, surface, palette, world_w, false, world_left(), world_right())
+	_foreground.configure(map_id, surface, palette, world_w, false, world_left(), world_right())
+	if mission_level:
+		_backdrop.visible = false
+		_foreground.visible = false
+		_backdrop.set_process(false)
+		_foreground.set_process(false)
+	else:
+		_backdrop.visible = true
+		_foreground.visible = true
+		_backdrop.set_process(true)
+		_foreground.set_process(true)
 	if not mission_level:
 		_environment.configure(map_id)
 	_spawn_destructibles(map)
-	queue_redraw()
+	if not mission_level:
+		queue_redraw()
 
 
 func _clear_collision() -> void:
@@ -293,11 +311,36 @@ func cycle_map() -> void:
 
 
 func _draw() -> void:
+	if mission_level:
+		return
 	var map: Dictionary = MapDefs.get_map(map_id)
-	if mission_level and level != null:
-		_draw_mission_level(map)
-	else:
-		_draw_arena_mode(map)
+	_draw_arena_mode(map)
+
+
+func _clear_mission_bake() -> void:
+	_mission_baking = false
+	if is_instance_valid(_mission_bake_sprite):
+		_mission_bake_sprite.queue_free()
+	_mission_bake_sprite = null
+
+
+func _bake_mission_environment(map: Dictionary) -> void:
+	_clear_mission_bake()
+	if level == null:
+		return
+	_mission_baking = true
+	var surface := ground_surface_y()
+	var platform_color: Color = map.get("platform", Color(0.58, 0.42, 0.28))
+	var sprite := await MissionEnvironmentBake.bake(
+		self, map_id, level, surface, platform_color
+	)
+	_mission_baking = false
+	if not is_instance_valid(self) or level == null:
+		if is_instance_valid(sprite):
+			sprite.queue_free()
+		return
+	_mission_bake_sprite = sprite
+	add_child(sprite)
 
 
 func _draw_arena_mode(map: Dictionary) -> void:
@@ -311,22 +354,20 @@ func _draw_arena_mode(map: Dictionary) -> void:
 
 
 func _draw_mission_level(map: Dictionary) -> void:
+	# Fallback while bake is in progress.
 	var surface := ground_surface_y()
 	var left := level.world_left
-	var width := level.world_right - level.world_left
-	draw_rect(Rect2(left, -600, width, surface + 600), map.get("sky", Color(0.62, 0.78, 0.62)))
-	draw_rect(Rect2(left, surface + 40, width, 800), map.get("ground", Color(0.42, 0.3, 0.18)))
-
+	var right := level.world_right
+	var platform_color: Color = map.get("platform", Color(0.58, 0.42, 0.28))
+	LevelEnvironmentDraw.draw_mission_backdrop(self, left, right, surface, map_id, 0.0, 0.0)
+	LevelEnvironmentDraw.draw_lower_shaft(self, left, right, surface, map_id, 0.0)
 	for plat in level.platforms:
 		var px := float(plat.get("x", 0.0))
 		var py := float(plat.get("y", 0.0))
 		var pw := float(plat.get("w", 0.0))
 		var ph := float(plat.get("h", 14.0))
-		draw_rect(Rect2(px, py - ph, pw, ph), map.get("platform", Color(0.58, 0.42, 0.28)))
-		_draw_platform_wear(py, map, px, pw)
-
-	_draw_mission_ground_fill(map, surface)
-	_draw_mission_props(map, surface)
+		LevelEnvironmentDraw.draw_platform(self, px, py, pw, ph, platform_color, platform_color.darkened(0.12))
+	LevelEnvironmentDraw.draw_safe_zone(self, left, level.safe_zone_end_x, surface, _arena_time)
 	_draw_mission_section_labels()
 
 

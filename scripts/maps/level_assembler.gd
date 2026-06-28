@@ -41,7 +41,7 @@ func build(map_id: MapDefs.MapId) -> void:
 	hazards.clear()
 
 	var map: Dictionary = MapDefs.get_map(map_id)
-	base_ground_y = float(map.get("ground_y", 490.0))
+	base_ground_y = MapDefs.mission_ground_y()
 	var layout: Array = LevelLayoutDefs.get_layout(map_id)
 
 	var cursor_x := 80.0

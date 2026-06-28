@@ -24,10 +24,17 @@ const MARKER_ESCORT_END := "escort_end"
 const MARKER_BOSS := "boss"
 
 ## World-space distance east of the leftmost player spawn where enemies may appear.
-const PLAYER_SAFE_ZONE_MIN_WIDTH := 960.0
+const PLAYER_SAFE_ZONE_MIN_WIDTH := 1400.0
+
+## Mission playfield sits higher on screen so the lower wall shaft is visible.
+const MISSION_GROUND_Y := 378.0
 
 ## Temporary — single-height platforms for navigation testing.
 const FLAT_MISSION_LEVELS := true
+
+
+static func mission_ground_y() -> float:
+	return MISSION_GROUND_Y
 
 const MAPS := {
 	MapId.DESERT: {

@@ -31,11 +31,6 @@ func _ready() -> void:
 	queue_redraw()
 
 
-func _process(delta: float) -> void:
-	_time += delta
-	queue_redraw()
-
-
 func take_damage(amount: int, _source: Node = null) -> void:
 	health -= amount
 	if health <= 0:

@@ -22,6 +22,8 @@ const WeaponLoadoutPanel := preload("res://scripts/ui/weapon_loadout_panel.gd")
 var _players: Array = []
 var _loadout_panel: WeaponLoadoutPanel
 var _play_controller: Node
+var _fps_badge: PanelContainer
+var _fps_label: Label
 
 func _ready() -> void:
 	GameManager.score_changed.connect(_on_score_changed)
@@ -39,6 +41,44 @@ func _ready() -> void:
 	title_label.text = _session_title()
 	message_label.text = _session_message()
 	_setup_hud_buttons()
+	_setup_fps_counter()
+
+
+func _setup_fps_counter() -> void:
+	if _fps_badge != null:
+		_fps_badge.queue_free()
+	_fps_badge = null
+	_fps_label = null
+
+	_fps_badge = PanelContainer.new()
+	_fps_badge.name = "FpsBadge"
+	_fps_badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_fps_badge.offset_left = -108.0
+	_fps_badge.offset_top = 40.0
+	_fps_badge.offset_right = -8.0
+	_fps_badge.offset_bottom = 72.0
+
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = Color(0.05, 0.08, 0.06, 0.92)
+	badge_style.border_color = Color(0.3, 0.95, 0.42, 1.0)
+	badge_style.set_border_width_all(2)
+	badge_style.set_corner_radius_all(10)
+	badge_style.set_content_margin_all(8)
+	_fps_badge.add_theme_stylebox_override("panel", badge_style)
+
+	_fps_label = Label.new()
+	_fps_label.name = "FpsLabel"
+	_fps_label.text = "— FPS"
+	_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fps_label.add_theme_font_size_override("font_size", 17)
+	_fps_label.add_theme_color_override("font_color", Color(0.55, 1.0, 0.62, 1.0))
+	_fps_badge.add_child(_fps_label)
+	hud.add_child(_fps_badge)
+
+
+func _process(_delta: float) -> void:
+	if _fps_label != null:
+		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
 
 
 func _setup_play_mode() -> void:
